@@ -24,7 +24,7 @@ struct idiotApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .frame(minWidth: 500, idealWidth: 500, maxWidth: 500)
+                .frame(minWidth: 750, idealWidth: 750, maxWidth: 750)
                 .frame(idealHeight: 600)
         }
         .windowResizability(.contentSize)

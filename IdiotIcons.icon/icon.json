@@ -1,0 +1,59 @@
+{
+  "fill" : {
+    "automatic-gradient" : "srgb:0.00000,0.28382,0.56285,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "fill" : {
+            "solid" : "srgb:0.04134,0.98586,0.73331,1.00000"
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "IDIOTFINANCEDOLLARSIGN.png",
+          "name" : "IDIOTFINANCEDOLLARSIGN",
+          "opacity" : 0.75,
+          "position" : {
+            "scale" : 0.9,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+
+      ],
+      "lighting" : "individual",
+      "name" : "Group",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

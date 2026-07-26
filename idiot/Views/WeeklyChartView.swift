@@ -8,6 +8,8 @@ struct WeeklyChartView: View {
     @Query(sort: \Transaction.date) private var allTransactions: [Transaction]
     @State private var hoveredWeekLabel: String?
     @State private var hoveredLocation: CGPoint?
+    @State private var chartSize: CGSize = .zero
+    @State private var tooltipSize: CGSize = .zero
 
     private var transactions: [Transaction] {
         let start = selectedMonth.startOfMonth
@@ -170,6 +172,8 @@ struct WeeklyChartView: View {
                     Rectangle()
                         .fill(.clear)
                         .contentShape(Rectangle())
+                        .onAppear { chartSize = geometry.size }
+                        .onChange(of: geometry.size) { chartSize = $1 }
                         .onContinuousHover { phase in
                             switch phase {
                             case let .active(location):
@@ -241,12 +245,38 @@ struct WeeklyChartView: View {
                     .padding(.horizontal, 8)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
                     .fixedSize()
-                    .offset(x: location.x + 12, y: location.y - 16)
+                    .background(GeometryReader { geo in
+                        Color.clear.preference(key: SizePreferenceKey.self, value: geo.size)
+                    })
+                    .offset(
+                        x: tooltipOffset(location, tooltipSize: tooltipSize).x,
+                        y: tooltipOffset(location, tooltipSize: tooltipSize).y
+                    )
                 }
             }
+            .onPreferenceChange(SizePreferenceKey.self) { tooltipSize = $0 }
         }
         .padding(.horizontal)
         .padding(.bottom, 12)
+    }
+
+    private func tooltipOffset(_ location: CGPoint, tooltipSize: CGSize) -> CGPoint {
+        let gap: CGFloat = 12
+
+        let fitsRight = location.x + gap + tooltipSize.width <= chartSize.width
+        let offsetX = fitsRight ? location.x + gap : max(gap, location.x - tooltipSize.width - gap)
+
+        let fitsAbove = location.y - gap >= tooltipSize.height
+        let offsetY = fitsAbove ? location.y - gap - tooltipSize.height : min(chartSize.height - tooltipSize.height - gap, location.y + gap)
+
+        return CGPoint(x: offsetX, y: max(gap, offsetY))
+    }
+}
+
+struct SizePreferenceKey: PreferenceKey {
+    static let defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
     }
 }
 
