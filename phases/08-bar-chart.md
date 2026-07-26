@@ -54,4 +54,5 @@ Add a stacked vertical bar chart showing the selected month's spending broken do
 - Switching months updates the chart.
 
 ## Implementation Guide
-(To be filled after Phase 8 implementation.)
+
+Implemented Phase 8 with `WeeklyChartView`, a Swift Charts stacked bar chart that groups selected-month expense transactions by week of month and category. Chart segment colors are mapped from each category's stored `colorHex`, empty months show a native unavailable state, and `ContentView` now places the chart between the summary bar and transaction list.

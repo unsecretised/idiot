@@ -53,4 +53,5 @@ Build the top header area: a month/year picker on the left, a settings gear icon
 - Settings gear opens the sheet.
 
 ## Implementation Guide
-(To be filled after Phase 7 implementation.)
+
+Implemented Phase 7 with `MonthlyHeaderView` and `SummaryBarView`. The main screen now has a top month picker populated with the last 12 months, a settings gear that opens `SettingsView`, and a git-diff-style monthly summary showing income, expense, and net totals from SwiftData transactions filtered to the selected month.

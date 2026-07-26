@@ -46,4 +46,5 @@ Add right-click context menus to transaction rows with Edit, Copy, and Delete ac
 - Delete removes the transaction after confirmation.
 
 ## Implementation Guide
-(To be filled after Phase 6 implementation.)
+
+Implemented Phase 6 by adding a context menu to transaction rows from `TransactionListView`. Edit opens `TransactionFormView` with the selected transaction, Copy duplicates the transaction with today's date and a fresh SwiftData object, Delete uses a confirmation alert, and both Edit/Delete are disabled for transactions whose date is in a past month. Existing row dimming continues to use the shared `Date.isInPastMonth` helper.

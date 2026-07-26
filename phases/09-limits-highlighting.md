@@ -34,4 +34,5 @@ Add category budget limits with visual progress tracking, over-limit highlightin
 - Income/expense tinting is consistent across all rows.
 
 ## Implementation Guide
-(To be filled after Phase 9 implementation.)
+
+Implemented Phase 9 by showing current-month budget progress for expense categories with limits in `SettingsView`, including red progress/status text once spending reaches the limit. Transaction rows now receive selected-month category totals from `TransactionListView`, highlight over-limit expense categories with a red-tinted background, and keep income/expense amount tinting consistent.

@@ -1,0 +1,267 @@
+import Charts
+import SwiftData
+import SwiftUI
+
+struct WeeklyChartView: View {
+    let selectedMonth: Date
+
+    @Query(sort: \Transaction.date) private var allTransactions: [Transaction]
+    @State private var hoveredWeekLabel: String?
+    @State private var hoveredLocation: CGPoint?
+
+    private var transactions: [Transaction] {
+        let start = selectedMonth.startOfMonth
+        let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? selectedMonth.endOfMonth
+        return allTransactions.filter { $0.date >= start && $0.date < end }
+    }
+
+    private var weeklyData: [WeeklyCategoryAmount] {
+        let weekRange = Calendar.current.range(of: .weekOfMonth, in: .month, for: selectedMonth) ?? 1 ..< 1
+        var result: [WeeklyCategoryAmount] = []
+
+        for week in weekRange {
+            let weekTxs = transactions.filter { $0.date.weekOfMonth == week }
+            let label = Date.weekDateRangeLabel(weekNumber: week, in: selectedMonth)
+            let grouped = Dictionary(grouping: weekTxs) { $0.category?.name ?? "Uncategorized" }
+
+            for (name, txs) in grouped {
+                guard let category = txs.first?.category else { continue }
+                let amount = txs.reduce(0) { $0 + $1.amount }
+                result.append(WeeklyCategoryAmount(
+                    week: week,
+                    weekLabel: label,
+                    categoryName: name,
+                    categoryColor: category.colorHex,
+                    amount: category.type == .expense ? amount : -amount
+                ))
+            }
+        }
+
+        return result.sorted {
+            if $0.week != $1.week { return $0.week < $1.week }
+            if $0.amount >= 0, $1.amount < 0 { return true }
+            if $0.amount < 0, $1.amount >= 0 { return false }
+            return $0.categoryName < $1.categoryName
+        }
+    }
+
+    private var colorDomain: [String] {
+        Array(Set(weeklyData.map(\.categoryName))).sorted()
+    }
+
+    private var colorRange: [Color] {
+        colorDomain.map { name in
+            let hex = weeklyData.first { $0.categoryName == name }?.categoryColor ?? "#8E8E93"
+            return Color(hex: hex)
+        }
+    }
+
+    private var maxAbsoluteAmount: Double {
+        let positive = Dictionary(grouping: weeklyData.filter { $0.amount > 0 }, by: \.week)
+            .mapValues { items in items.reduce(0) { $0 + $1.amount } }
+        let negative = Dictionary(grouping: weeklyData.filter { $0.amount < 0 }, by: \.week)
+            .mapValues { items in abs(items.reduce(0) { $0 + $1.amount }) }
+        let maxVal = max(positive.values.max() ?? 0, negative.values.max() ?? 0)
+        guard maxVal > 0 else { return 1 }
+        return maxVal * 1.15
+    }
+
+    private var monthlyIncome: Double {
+        transactions.filter { $0.category?.type == .income }.reduce(0) { $0 + $1.amount }
+    }
+
+    private var monthlyExpenses: Double {
+        transactions.filter { $0.category?.type == .expense }.reduce(0) { $0 + $1.amount }
+    }
+
+    private var monthlyNet: Double {
+        monthlyIncome - monthlyExpenses
+    }
+
+    private var hoveredExpensesTotal: Double {
+        hoveredWeekDetails.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+    }
+
+    private var hoveredIncomeTotal: Double {
+        hoveredWeekDetails.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
+    }
+
+    private var hoveredNetTotal: Double {
+        hoveredIncomeTotal - hoveredExpensesTotal
+    }
+
+    private var hoveredWeekNumber: Int? {
+        guard let hoveredWeekLabel else { return nil }
+        return weeklyData.first(where: { $0.weekLabel == hoveredWeekLabel })?.week
+    }
+
+    private var hoveredWeekDetails: [CategoryBreakdown] {
+        guard let week = hoveredWeekNumber else { return [] }
+        let weekTxs = transactions.filter { $0.date.weekOfMonth == week }
+        let grouped = Dictionary(grouping: weekTxs) { $0.category?.name ?? "Uncategorized" }
+
+        return grouped.compactMap { name, txs in
+            guard let category = txs.first?.category else { return nil }
+            return CategoryBreakdown(
+                categoryName: name,
+                colorHex: category.colorHex,
+                amount: txs.reduce(0) { $0 + $1.amount },
+                type: category.type
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.type != rhs.type {
+                return lhs.type == .expense
+            }
+            return lhs.categoryName < rhs.categoryName
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center) {
+                Text("Weekly Overview")
+                    .font(.title2.weight(.semibold))
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(monthlyNet.formattedCurrency)
+                        .font(.title2.weight(.bold))
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Text("+")
+                                .foregroundStyle(.green)
+                            Text(monthlyIncome.formattedCurrency)
+                                .foregroundStyle(.green)
+                        }
+                        HStack(spacing: 4) {
+                            Text("−")
+                                .foregroundStyle(.red)
+                            Text(monthlyExpenses.formattedCurrency)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                    .font(.callout)
+                }
+            }
+
+            Chart(weeklyData) { item in
+                BarMark(
+                    x: .value("Week", item.weekLabel),
+                    y: .value("Amount", item.amount)
+                )
+                .foregroundStyle(by: .value("Category", item.categoryName))
+                .accessibilityLabel("\(item.categoryName), week \(item.week)")
+                .accessibilityValue(item.amount.formattedCurrency)
+            }
+            .chartForegroundStyleScale(domain: colorDomain, range: colorRange)
+            .chartYScale(domain: -maxAbsoluteAmount ... maxAbsoluteAmount)
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let amount = value.as(Double.self) {
+                            Text(abs(amount).formattedCurrency)
+                        }
+                    }
+                }
+            }
+            .chartOverlay { proxy in
+                GeometryReader { geometry in
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case let .active(location):
+                                let plotFrame = geometry[proxy.plotAreaFrame]
+                                let x = location.x - plotFrame.origin.x
+                                let y = location.y - plotFrame.origin.y
+                                if x >= 0, x <= plotFrame.width, y >= 0, y <= plotFrame.height {
+                                    if let weekLabel: String = proxy.value(atX: x) {
+                                        hoveredWeekLabel = weekLabel
+                                    } else {
+                                        hoveredWeekLabel = nil
+                                    }
+                                    hoveredLocation = location
+                                } else {
+                                    hoveredWeekLabel = nil
+                                    hoveredLocation = nil
+                                }
+                            case .ended:
+                                hoveredWeekLabel = nil
+                                hoveredLocation = nil
+                            }
+                        }
+                }
+            }
+            .frame(height: 220)
+            .overlay(alignment: .topLeading) {
+                if let location = hoveredLocation, !hoveredWeekDetails.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(hoveredWeekLabel ?? "")
+                            .font(.caption.weight(.semibold))
+                        ForEach(hoveredWeekDetails, id: \.categoryName) { detail in
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(Color(hex: detail.colorHex))
+                                    .frame(width: 8, height: 8)
+                                Text(detail.categoryName)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text(detail.amount.formattedCurrency)
+                                    .fontWeight(.semibold)
+                            }
+                            .font(.caption)
+                        }
+
+                        Divider()
+                        HStack {
+                            Text("Total expenses")
+                                .foregroundStyle(.red)
+                            Spacer()
+                            Text(hoveredExpensesTotal.formattedCurrency)
+                                .foregroundStyle(.red)
+                        }
+                        HStack {
+                            Text("Total income")
+                                .foregroundStyle(.green)
+                            Spacer()
+                            Text(hoveredIncomeTotal.formattedCurrency)
+                                .foregroundStyle(.green)
+                        }
+                        HStack {
+                            Text("Net")
+                                .fontWeight(.bold)
+                            Spacer()
+                            Text(hoveredNetTotal.formattedCurrency)
+                                .fontWeight(.bold)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    .fixedSize()
+                    .offset(x: location.x + 12, y: location.y - 16)
+                }
+            }
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 12)
+    }
+}
+
+struct WeeklyCategoryAmount: Identifiable {
+    let id = UUID()
+    let week: Int
+    let weekLabel: String
+    let categoryName: String
+    let categoryColor: String
+    let amount: Double
+}
+
+struct CategoryBreakdown {
+    let categoryName: String
+    let colorHex: String
+    let amount: Double
+    let type: CategoryType
+}

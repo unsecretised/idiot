@@ -37,4 +37,5 @@ Refine the transaction form from Phase 4 into a full-featured sheet that handles
 - Form dismisses correctly.
 
 ## Implementation Guide
-(To be filled after Phase 5 implementation.)
+
+Implemented Phase 5 by refactoring `TransactionFormView` to accept an optional `Transaction`. The form now supports add and edit modes, pre-fills existing transaction values, validates title/amount/category with inline red messages, updates existing SwiftData objects in edit mode, and inserts new transactions in add mode.

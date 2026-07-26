@@ -36,4 +36,5 @@ Build the Settings view — a modal sheet with a list of categories grouped by t
 - The list updates immediately via `@Query`.
 
 ## Implementation Guide
-(To be filled after Phase 3 implementation.)
+
+Implemented Phase 3 with `SettingsView` and `CategoryEditView`. The main window now exposes a settings gear sheet, categories are listed by expense/income using SwiftData `@Query`, category rows show icon/color/limits, add/edit saves through `modelContext`, and deletion is guarded so system categories show a warning while custom categories require confirmation.

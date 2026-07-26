@@ -39,4 +39,5 @@ Existing files (`idiotApp.swift`, `ContentView.swift`, `Assets.xcassets/`) stay 
 - Confirm project builds with `make build`.
 
 ## Implementation Guide
-(To be filled after Phase 1 implementation.)
+
+Implemented Phase 1 by lowering the Xcode project deployment target to macOS 14.0, creating the planned `Models`, `Views`, `ViewModels`, `Helpers`, and `Resources` directories, and adding shared `Date`, `Color`, and currency-formatting helpers. Run `make build` after SwiftFormat is installed to verify the baseline app.

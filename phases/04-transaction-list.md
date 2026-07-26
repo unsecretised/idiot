@@ -46,4 +46,5 @@ Build the main transaction list showing all transactions for the selected month,
 - Rows are properly sorted by date.
 
 ## Implementation Guide
-(To be filled after Phase 4 implementation.)
+
+Implemented Phase 4 with `TransactionRowView`, `TransactionListView`, and an add-only `TransactionFormView`. `ContentView` now hosts a selected-month transaction list, rows show income/expense prefixes with matching amount colors, the list filters transactions to the month, and a floating plus button presents the add transaction sheet.

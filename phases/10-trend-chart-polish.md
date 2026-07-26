@@ -75,4 +75,5 @@ Add a multi-month trend line chart (accessible from Settings) showing spending p
   - Use keyboard shortcuts.
 
 ## Implementation Guide
-(To be filled after Phase 10 implementation.)
+
+Implemented Phase 10 with `TrendChartView`, accessible from Settings through a "View Spending Trends" navigation row. The trend chart groups expense transactions by month and category, supports category toggles, shows empty/insufficient-data states, and uses category colors consistently. Added empty states for the transaction list and no-category form case, list/chart animations, keyboard shortcuts for new transaction (`Cmd+N`) and settings (`Cmd+,`), and accessibility labels/values on chart and budget elements.

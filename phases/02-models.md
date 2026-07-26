@@ -66,4 +66,5 @@ Create a `Models/DefaultCategories.swift` that provides a static method `seed(co
 - Run `make build` and ensure no compilation errors.
 
 ## Implementation Guide
-(To be filled after Phase 2 implementation.)
+
+Implemented Phase 2 by adding `CategoryType`, `Category`, `Transaction`, and `DefaultCategories` under `idiot/Models`. The app now creates a SwiftData `ModelContainer` at launch, injects it into SwiftUI with `.modelContainer(container)`, and seeds the default income and expense categories once via `UserDefaults`.
