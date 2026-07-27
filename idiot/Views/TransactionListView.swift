@@ -3,6 +3,11 @@ import SwiftUI
 
 struct TransactionListView: View {
     let selectedMonth: Date
+    @Binding var hiddenCategoryIDs: Set<Category.ID>
+    @Binding var minAmountText: String
+    @Binding var maxAmountText: String
+    @Binding var showIncome: Bool
+    @Binding var showExpense: Bool
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Transaction.date, order: .reverse) private var allTransactions: [Transaction]
@@ -11,12 +16,9 @@ struct TransactionListView: View {
     @State private var showAddTransaction = false
     @State private var editingTransaction: Transaction?
     @State private var pendingDeleteTransaction: Transaction?
-    @State private var hiddenCategoryIDs: Set<Category.ID> = []
     @State private var selectedTransactionIDs: Set<Transaction.ID> = []
     @State private var showBatchDeleteAlert = false
     @State private var showFilterPopover = false
-    @State private var minAmountText = ""
-    @State private var maxAmountText = ""
 
     private var transactions: [Transaction] {
         let start = selectedMonth.startOfMonth
@@ -37,13 +39,15 @@ struct TransactionListView: View {
     }
 
     private var hasActiveFilters: Bool {
-        !hiddenCategoryIDs.isEmpty || minAmountFilter != nil || maxAmountFilter != nil
+        !hiddenCategoryIDs.isEmpty || minAmountFilter != nil || maxAmountFilter != nil || !showIncome || !showExpense
     }
 
     private var filteredTransactions: [Transaction] {
         transactions.filter { transaction in
-            if let category = transaction.category, hiddenCategoryIDs.contains(category.id) {
-                return false
+            if let category = transaction.category {
+                if hiddenCategoryIDs.contains(category.id) { return false }
+                if !showIncome, category.type == .income { return false }
+                if !showExpense, category.type == .expense { return false }
             }
             if let minVal = minAmountFilter, transaction.amount < minVal {
                 return false
@@ -180,6 +184,16 @@ struct TransactionListView: View {
             Text("Filters")
                 .font(.headline)
 
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Type")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Toggle("Income", isOn: $showIncome)
+                    .toggleStyle(.checkbox)
+                Toggle("Expense", isOn: $showExpense)
+                    .toggleStyle(.checkbox)
+            }
+
             if !categories.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Categories")
@@ -232,6 +246,8 @@ struct TransactionListView: View {
                     hiddenCategoryIDs = []
                     minAmountText = ""
                     maxAmountText = ""
+                    showIncome = true
+                    showExpense = true
                 }
                 .buttonStyle(.plain)
                 .font(.caption)

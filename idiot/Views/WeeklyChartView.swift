@@ -4,6 +4,11 @@ import SwiftUI
 
 struct WeeklyChartView: View {
     let selectedMonth: Date
+    let hiddenCategoryIDs: Set<Category.ID>
+    let minAmount: Double?
+    let maxAmount: Double?
+    let showIncome: Bool
+    let showExpense: Bool
 
     @Query(sort: \Transaction.date) private var allTransactions: [Transaction]
     @State private var hoveredWeekLabel: String?
@@ -18,7 +23,17 @@ struct WeeklyChartView: View {
     private var transactions: [Transaction] {
         let start = selectedMonth.startOfMonth
         let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? selectedMonth.endOfMonth
-        return allTransactions.filter { $0.date >= start && $0.date < end }
+        return allTransactions.filter { tx in
+            guard tx.date >= start, tx.date < end else { return false }
+            if let cat = tx.category {
+                if hiddenCategoryIDs.contains(cat.id) { return false }
+                if !showIncome, cat.type == .income { return false }
+                if !showExpense, cat.type == .expense { return false }
+            }
+            if let minVal = minAmount, tx.amount < minVal { return false }
+            if let maxVal = maxAmount, tx.amount > maxVal { return false }
+            return true
+        }
     }
 
     private var weeklyData: [WeeklyCategoryAmount] {
