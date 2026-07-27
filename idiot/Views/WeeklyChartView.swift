@@ -10,6 +10,10 @@ struct WeeklyChartView: View {
     @State private var hoveredLocation: CGPoint?
     @State private var chartSize: CGSize = .zero
     @State private var tooltipSize: CGSize = .zero
+    @State private var yZoom: CGFloat = 1.0
+    @State private var yPan: Double = 0.0
+    @State private var lastZoom: CGFloat = 1.0
+    @State private var lastPan: Double = 0.0
 
     private var transactions: [Transaction] {
         let start = selectedMonth.startOfMonth
@@ -43,7 +47,8 @@ struct WeeklyChartView: View {
             if $0.week != $1.week { return $0.week < $1.week }
             if $0.amount >= 0, $1.amount < 0 { return true }
             if $0.amount < 0, $1.amount >= 0 { return false }
-            return $0.categoryName < $1.categoryName
+            if $0.amount < 0, $1.amount < 0 { return $0.amount > $1.amount }
+            return $0.amount < $1.amount
         }
     }
 
@@ -66,6 +71,11 @@ struct WeeklyChartView: View {
         let maxVal = max(positive.values.max() ?? 0, negative.values.max() ?? 0)
         guard maxVal > 0 else { return 1 }
         return maxVal * 1.15
+    }
+
+    private var yAxisDomain: ClosedRange<Double> {
+        let range = maxAbsoluteAmount / Double(yZoom)
+        return (-range + yPan) ... (range + yPan)
     }
 
     private var monthlyIncome: Double {
@@ -115,7 +125,8 @@ struct WeeklyChartView: View {
             if lhs.type != rhs.type {
                 return lhs.type == .expense
             }
-            return lhs.categoryName < rhs.categoryName
+            if lhs.type == .expense { return lhs.amount > rhs.amount }
+            return lhs.amount < rhs.amount
         }
     }
 
@@ -156,7 +167,7 @@ struct WeeklyChartView: View {
                 .accessibilityValue(item.amount.formattedCurrency)
             }
             .chartForegroundStyleScale(domain: colorDomain, range: colorRange)
-            .chartYScale(domain: -maxAbsoluteAmount ... maxAbsoluteAmount)
+            .chartYScale(domain: yAxisDomain)
             .chartYAxis {
                 AxisMarks { value in
                     AxisGridLine()
@@ -198,7 +209,52 @@ struct WeeklyChartView: View {
                         }
                 }
             }
-            .frame(height: 220)
+            .frame(height: 320)
+            .clipped()
+            .background(ScrollWheelHandler { delta in
+                let factor = exp(delta * 0.02)
+                yZoom = max(1.0, yZoom * factor)
+                lastZoom = yZoom
+            })
+            .simultaneousGesture(
+                MagnificationGesture()
+                    .onChanged { value in
+                        yZoom = max(1.0, lastZoom * value)
+                    }
+                    .onEnded { _ in
+                        lastZoom = yZoom
+                    }
+            )
+            .simultaneousGesture(
+                DragGesture()
+                    .onChanged { value in
+                        let range = maxAbsoluteAmount / Double(yZoom)
+                        let chartH = max(chartSize.height, 320)
+                        yPan = lastPan - Double(value.translation.height) / Double(chartH) * 2 * range
+                    }
+                    .onEnded { _ in
+                        lastPan = yPan
+                    }
+            )
+            .simultaneousGesture(
+                TapGesture(count: 2).onEnded { resetYZoom() }
+            )
+            .overlay(alignment: .topTrailing) {
+                if yZoom > 1.01 || abs(yPan) > 0.01 {
+                    Button {
+                        resetYZoom()
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(6)
+                            .background(.regularMaterial, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset zoom")
+                    .padding(6)
+                }
+            }
             .overlay(alignment: .topLeading) {
                 if let location = hoveredLocation, !hoveredWeekDetails.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
@@ -271,6 +327,15 @@ struct WeeklyChartView: View {
 
         return CGPoint(x: offsetX, y: max(gap, offsetY))
     }
+
+    private func resetYZoom() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            yZoom = 1.0
+            yPan = 0.0
+            lastZoom = 1.0
+            lastPan = 0.0
+        }
+    }
 }
 
 struct SizePreferenceKey: PreferenceKey {
@@ -294,4 +359,31 @@ struct CategoryBreakdown {
     let colorHex: String
     let amount: Double
     let type: CategoryType
+}
+
+struct ScrollWheelHandler: NSViewRepresentable {
+    let onScroll: (CGFloat) -> Void
+
+    func makeNSView(context _: Context) -> NSView {
+        let view = _ScrollWheelView()
+        view.onScroll = onScroll
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context _: Context) {
+        (nsView as? _ScrollWheelView)?.onScroll = onScroll
+    }
+}
+
+final class _ScrollWheelView: NSView {
+    var onScroll: ((CGFloat) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        wantsRestingTouches = true
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        onScroll?(event.scrollingDeltaY)
+    }
 }
