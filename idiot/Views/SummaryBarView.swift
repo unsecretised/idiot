@@ -28,19 +28,42 @@ struct SummaryBarView: View {
         totalIncome - totalExpense
     }
 
+    private var broughtForwardBalance: Double {
+        let start = selectedMonth.startOfMonth
+        return allTransactions
+            .filter { $0.date < start }
+            .reduce(0) { $0 + ($1.category?.type == .income ? $1.amount : -$1.amount) }
+    }
+
+    private var totalBalance: Double {
+        broughtForwardBalance + netTotal
+    }
+
     var body: some View {
-        HStack(spacing: 18) {
-            Text("+\(totalIncome.formattedCurrency)")
-                .foregroundStyle(.green)
+        VStack(spacing: 4) {
+            HStack(spacing: 18) {
+                Text("+\(totalIncome.formattedCurrency)")
+                    .foregroundStyle(.green)
 
-            Text("−\(totalExpense.formattedCurrency)")
-                .foregroundStyle(.red)
+                Text("−\(totalExpense.formattedCurrency)")
+                    .foregroundStyle(.red)
 
-            Text("= \(netPrefix)\(abs(netTotal).formattedCurrency)")
-                .fontWeight(.bold)
-                .foregroundStyle(netColor)
+                Text("= \(netPrefix)\(abs(netTotal).formattedCurrency)")
+                    .fontWeight(.bold)
+                    .foregroundStyle(netColor)
+            }
+            .font(.callout.monospacedDigit())
+
+            HStack(spacing: 18) {
+                Text("Brought forward: \(broughtForwardBalance.formattedCurrency)")
+                    .foregroundStyle(.secondary)
+
+                Text("Balance: \(balancePrefix)\(abs(totalBalance).formattedCurrency)")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(balanceColor)
+            }
+            .font(.caption.monospacedDigit())
         }
-        .font(.callout.monospacedDigit())
         .padding(.horizontal)
         .padding(.bottom, 10)
     }
@@ -63,6 +86,30 @@ struct SummaryBarView: View {
         }
 
         if netTotal < 0 {
+            return .red
+        }
+
+        return .primary
+    }
+
+    private var balancePrefix: String {
+        if totalBalance > 0 {
+            return "+"
+        }
+
+        if totalBalance < 0 {
+            return "−"
+        }
+
+        return ""
+    }
+
+    private var balanceColor: Color {
+        if totalBalance > 0 {
+            return .green
+        }
+
+        if totalBalance < 0 {
             return .red
         }
 

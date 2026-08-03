@@ -26,12 +26,22 @@ struct WeeklyChartView: View {
         return allTransactions.filter { tx in
             guard tx.date >= start, tx.date < end else { return false }
             if let cat = tx.category {
-                if hiddenCategoryIDs.contains(cat.id) { return false }
-                if !showIncome, cat.type == .income { return false }
-                if !showExpense, cat.type == .expense { return false }
+                if hiddenCategoryIDs.contains(cat.id) {
+                    return false
+                }
+                if !showIncome, cat.type == .income {
+                    return false
+                }
+                if !showExpense, cat.type == .expense {
+                    return false
+                }
             }
-            if let minVal = minAmount, tx.amount < minVal { return false }
-            if let maxVal = maxAmount, tx.amount > maxVal { return false }
+            if let minVal = minAmount, tx.amount < minVal {
+                return false
+            }
+            if let maxVal = maxAmount, tx.amount > maxVal {
+                return false
+            }
             return true
         }
     }
@@ -59,11 +69,19 @@ struct WeeklyChartView: View {
         }
 
         return result.sorted {
-            if $0.week != $1.week { return $0.week < $1.week }
-            if $0.amount >= 0, $1.amount < 0 { return true }
-            if $0.amount < 0, $1.amount >= 0 { return false }
-            if $0.amount < 0, $1.amount < 0 { return $0.amount > $1.amount }
-            return $0.amount < $1.amount
+            if $0.week != $1.week {
+                return $0.week < $1.week
+            }
+            if $0.amount >= 0, $1.amount < 0 {
+                return true
+            }
+            if $0.amount < 0, $1.amount >= 0 {
+                return false
+            }
+            if $0.amount < 0, $1.amount < 0 {
+                return $0.amount < $1.amount
+            }
+            return $0.amount > $1.amount
         }
     }
 
@@ -105,6 +123,29 @@ struct WeeklyChartView: View {
         monthlyIncome - monthlyExpenses
     }
 
+    private var broughtForwardBalance: Double {
+        let start = selectedMonth.startOfMonth
+        return allTransactions
+            .filter { $0.date < start }
+            .reduce(0) { $0 + ($1.category?.type == .income ? $1.amount : -$1.amount) }
+    }
+
+    private var totalBalance: Double {
+        broughtForwardBalance + monthlyNet
+    }
+
+    private var balanceColor: Color {
+        if totalBalance > 0 {
+            return .green
+        }
+
+        if totalBalance < 0 {
+            return .red
+        }
+
+        return .primary
+    }
+
     private var hoveredExpensesTotal: Double {
         hoveredWeekDetails.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
     }
@@ -140,7 +181,9 @@ struct WeeklyChartView: View {
             if lhs.type != rhs.type {
                 return lhs.type == .expense
             }
-            if lhs.type == .expense { return lhs.amount > rhs.amount }
+            if lhs.type == .expense {
+                return lhs.amount > rhs.amount
+            }
             return lhs.amount < rhs.amount
         }
     }
@@ -169,6 +212,21 @@ struct WeeklyChartView: View {
                         }
                     }
                     .font(.callout)
+
+                    HStack(spacing: 4) {
+                        Text("Brought forward:")
+                            .foregroundStyle(.secondary)
+                        Text(broughtForwardBalance.formattedCurrency)
+                    }
+                    .font(.caption)
+
+                    HStack(spacing: 4) {
+                        Text("Balance:")
+                            .foregroundStyle(.secondary)
+                        Text(totalBalance.formattedCurrency)
+                            .foregroundStyle(balanceColor)
+                    }
+                    .font(.caption.weight(.semibold))
                 }
             }
 

@@ -45,9 +45,15 @@ struct TransactionListView: View {
     private var filteredTransactions: [Transaction] {
         transactions.filter { transaction in
             if let category = transaction.category {
-                if hiddenCategoryIDs.contains(category.id) { return false }
-                if !showIncome, category.type == .income { return false }
-                if !showExpense, category.type == .expense { return false }
+                if hiddenCategoryIDs.contains(category.id) {
+                    return false
+                }
+                if !showIncome, category.type == .income {
+                    return false
+                }
+                if !showExpense, category.type == .expense {
+                    return false
+                }
             }
             if let minVal = minAmountFilter, transaction.amount < minVal {
                 return false
