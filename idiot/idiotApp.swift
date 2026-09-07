@@ -30,5 +30,27 @@ struct idiotApp: App {
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
         .modelContainer(container)
+        .commands {
+            AnalyticsCommands()
+        }
+
+        Window("Analytics", id: "analytics") {
+            AnalyticsView()
+        }
+        .defaultSize(width: 880, height: 700)
+        .modelContainer(container)
+    }
+}
+
+struct AnalyticsCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandMenu("View") {
+            Button("Analytics") {
+                openWindow(id: "analytics")
+            }
+            .keyboardShortcut("a", modifiers: [.command, .shift])
+        }
     }
 }

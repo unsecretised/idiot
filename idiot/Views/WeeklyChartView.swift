@@ -261,7 +261,12 @@ struct WeeklyChartView: View {
                         .onContinuousHover { phase in
                             switch phase {
                             case let .active(location):
-                                let plotFrame = geometry[proxy.plotAreaFrame]
+                                guard let plotRect = proxy.plotFrame else {
+                                    hoveredWeekLabel = nil
+                                    hoveredLocation = nil
+                                    return
+                                }
+                                let plotFrame = geometry[plotRect]
                                 let x = location.x - plotFrame.origin.x
                                 let y = location.y - plotFrame.origin.y
                                 if x >= 0, x <= plotFrame.width, y >= 0, y <= plotFrame.height {

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MonthlyHeaderView: View {
+    @Environment(\.openWindow) private var openWindow
     @Binding var selectedMonth: Date
     @Binding var showSettings: Bool
 
@@ -70,6 +71,15 @@ struct MonthlyHeaderView: View {
             }
 
             Spacer()
+
+            Button {
+                openWindow(id: "analytics")
+            } label: {
+                Image(systemName: "chart.bar.xaxis")
+            }
+            .accessibilityLabel("Analytics")
+            .help("Open Analytics")
+            .padding(.trailing, 8)
 
             Button {
                 showSettings = true
