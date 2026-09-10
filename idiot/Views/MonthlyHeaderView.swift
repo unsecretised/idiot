@@ -9,6 +9,7 @@ struct MonthlyHeaderView: View {
     @Binding var showAnalytics: Bool
 
     @State private var showMonthPicker = false
+    @State private var showHelp = false
 
     private var monthLabel: String {
         selectedMonth.formatted(.dateTime.month(.wide).year())
@@ -89,6 +90,15 @@ struct MonthlyHeaderView: View {
             .padding(.trailing, 8)
 
             Button {
+                showHelp = true
+            } label: {
+                Image(systemName: "questionmark.circle")
+            }
+            .accessibilityLabel("Help")
+            .help("How to use this app")
+            .padding(.trailing, 8)
+
+            Button {
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape")
@@ -97,6 +107,21 @@ struct MonthlyHeaderView: View {
             .accessibilityLabel("Settings")
         }
         .padding(.horizontal)
+        .sheet(isPresented: $showHelp) {
+            NavigationStack {
+                HelpView()
+                #if os(iOS)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                showHelp = false
+                            }
+                        }
+                    }
+                    .navigationBarTitleDisplayMode(.inline)
+                #endif
+            }
+        }
     }
 
     private func moveMonth(by value: Int) {

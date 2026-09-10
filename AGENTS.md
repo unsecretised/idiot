@@ -1,11 +1,11 @@
-# AGENTS.md — Finance Tracker macOS App
+# AGENTS.md — Finance Tracker macOS + iOS App
 
 ## Project Overview
 
-A macOS SwiftUI finance tracking app with SwiftData persistence. The app tracks both income and expense transactions across customizable categories, visualizes spending with Swift Charts (weekly stacked bar charts + multi-month trend line charts), enforces category budgets, and locks past-month data from editing.
+A macOS + iOS SwiftUI finance tracking app with SwiftData persistence. The app tracks both income and expense transactions across customizable categories, visualizes spending with Swift Charts (weekly stacked bar charts + multi-month trend line charts + a full Analytics suite), enforces category budgets, supports recurring transaction rules, iCloud sync, widgets, and locks past-month data from editing.
 
-**Stack**: SwiftUI + SwiftData + Swift Charts  
-**Target**: macOS 14+  
+**Stack**: SwiftUI + SwiftData + Swift Charts + CloudKit  
+**Target**: macOS 14+ / iOS 17+  
 **Tooling**: SwiftFormat (`make format`), Xcode 26.5
 
 ## Architecture
@@ -16,29 +16,41 @@ idiot/
 ├── Models/
 │   ├── Transaction.swift
 │   ├── Category.swift
-│   └── CategoryType.swift
+│   ├── CategoryType.swift
+│   ├── RecurringRule.swift
+│   ├── RecurrenceFrequency.swift
+│   └── DefaultCategories.swift
+├── ViewModels/
+│   └── CloudSyncMonitor.swift
 ├── Views/
 │   ├── ContentView.swift
 │   ├── TransactionListView.swift
 │   ├── TransactionRowView.swift
 │   ├── TransactionFormView.swift
+│   ├── HelpView.swift (help & savings guide, opened from header ? button or Settings)
+│   ├── RecurringListView.swift
+│   ├── RecurringFormView.swift
 │   ├── SettingsView.swift
 │   ├── CategoryEditView.swift
 │   ├── MonthlyHeaderView.swift
 │   ├── WeeklyChartView.swift
-│   └── TrendChartView.swift
-├── ViewModels/
-│   ├── TransactionViewModel.swift
-│   ├── CategoryViewModel.swift
-│   └── ChartViewModel.swift
+│   ├── SummaryBarView.swift
+│   ├── TrendChartView.swift
+│   └── AnalyticsView.swift (+ HeatmapSection, BalanceChartSection,
+│        InsightsSection, ForecastSection, PeriodComparisonSection,
+│        RecurringSplitSection, SpendPatternsSection)
 ├── Helpers/
 │   ├── DateExtensions.swift
 │   ├── ColorExtensions.swift
-│   └── NumberFormatterExtensions.swift
+│   ├── NumberFormatterExtensions.swift
+│   ├── AnalyticsGranularity.swift
+│   ├── AnalyticsEngine.swift
+│   ├── RecurringEngine.swift
+│   └── WidgetSnapshotWriter.swift
 ├── Resources/
 │   └── (Assets, etc.)
 ├── idiotApp.swift
-└── ContentView.swift (legacy, will be refactored)
+└── ContentView.swift
 ```
 
 ### Data Models (SwiftData)
@@ -120,19 +132,37 @@ Transactions in any month **before** the current month are immutable:
 ContentView
 ├── MonthlyHeaderView
 │   ├── MonthPicker (dropdown)
+│   ├── AnalyticsButton (chart icon -> AnalyticsView)
+│   ├── HelpButton (questionmark icon -> HelpView sheet)
 │   └── SettingsButton (gear icon -> SettingsView sheet)
-├── SummaryBar (income / expense / net)
-├── WeeklyChartView (Swift Charts)
+├── WeeklyChartView (Swift Charts, includes income/expense/net + balance summary)
 ├── TransactionListView
 │   ├── TransactionRowView (per item)
 │   │   └── ContextMenu: Edit, Copy, Delete
 │   └── AddButton (floating +, bottom right -> TransactionFormView sheet)
-└── (Sheets)
+└── (Sheets / Windows)
     ├── TransactionFormView (add/edit)
+    ├── AnalyticsView (macOS: separate window, iOS: sheet; summary, insights and the
+    │   │   main chart are always visible, lower content is switched by a dropdown
+    │   │   picker in the toolbar)
+    │   ├── Filters (range, granularity, income/expense toggles, amounts, categories) — shared across tabs
+    │   ├── Always on top: summary header, insights cards, stacked bar chart
+    │   ├── Transactions tab: transaction breakdown list
+    │   ├── Categories tab: category stats breakdown
+    │   ├── Balance & Heatmap tab: cumulative balance line + daily/weekly heatmap
+    │   ├── Forecast & Budgets tab: end-of-month projection + budget board
+    │   ├── Comparison & Recurring tab: month-vs-month table + committed/discretionary donut
+    │   ├── Spend Patterns tab: weekday chart + size histogram
+    │   └── iOS toolbar wraps into two stacked rows (filters + range, tab + granularity)
     └── SettingsView
         ├── CategoryEditView (per category)
+        ├── RecurringListView + RecurringFormView
         └── TrendChartView (spending habits line chart)
 ```
+
+## Analytics Engine
+
+`Helpers/AnalyticsEngine.swift` holds pure, static computations fed pre-filtered `[Transaction]` arrays (no duplicated `@Query` work inside sections). Sections in `Views/` take computed value props from `AnalyticsView`. Recurring spend is identified via `Transaction.recurringRuleID != nil`; rule cost is normalized to monthly via `RecurringRule.monthlyNormalizedCost`. Forecasts use current-month pace plus upcoming occurrences computed by `AnalyticsEngine.upcomingOccurrences`.
 
 ## Phases (located in `phases/`)
 
@@ -148,6 +178,8 @@ ContentView
 | 8 | `08-bar-chart.md` | Weekly stacked bar chart with Swift Charts |
 | 9 | `09-limits-highlighting.md` | Category budget limits, over-limit highlighting, profit/spend tinting |
 | 10 | `10-trend-chart-polish.md` | Multi-month trend line chart, empty/error states, animations, a11y |
+| 11 | `11-subscriptions-ios-polish.md` | Subscriptions, iOS support, widgets, iCloud sync |
+| 12 | `12-analytics-expansion.md` | Analytics suite expansion (insights, balance, heatmap, forecast, comparison, recurring split, patterns) |
 
 ## Quick Reference
 
@@ -156,7 +188,9 @@ ContentView
 | Persistence | SwiftData (`@Model`, `ModelContainer`) |
 | Charts | Apple Swift Charts framework |
 | Settings | Modal sheet from gear icon |
+| Analytics | Separate window (macOS) / sheet (iOS), opened from chart icon |
 | Trend chart | Inside Settings area |
 | Min macOS | 14.0 |
+| Min iOS | 17.0 |
 | Formatting | `swiftformat .` |
 | Build | `xcodebuild` via Makefile |

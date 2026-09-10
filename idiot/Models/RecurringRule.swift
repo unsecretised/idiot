@@ -41,4 +41,8 @@ final class RecurringRule {
         get { RecurrenceFrequency(rawValue: frequencyRaw) ?? .monthly }
         set { frequencyRaw = newValue.rawValue }
     }
+
+    var monthlyNormalizedCost: Double {
+        amount * frequency.perMonthEstimateMultiplier
+    }
 }

@@ -1,8 +1,8 @@
 APP_NAME = idiot
 PROJECT_DIR = .
 BUNDLE_ID = com.umangsurana.idiot
-SIMULATOR_NAME = "iPhone 17 Pro"
-DEVICE_NAME ?= "iPhone"
+SIMULATOR_NAME = iPhone 17 Pro
+DEVICE_NAME ?= iPhone
 SWIFTFORMAT_VERSION = 0.55.5
 
 .PHONY: install format build run build-ios run-ios build-device run-device clean all

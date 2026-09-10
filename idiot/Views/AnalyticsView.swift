@@ -3,9 +3,13 @@ import SwiftData
 import SwiftUI
 
 struct AnalyticsView: View {
-    enum BreakdownTab: String, CaseIterable, Identifiable {
+    enum AnalyticsTab: String, CaseIterable, Identifiable {
         case transactions
         case categories
+        case balance
+        case forecast
+        case comparison
+        case patterns
 
         var id: String {
             rawValue
@@ -15,6 +19,21 @@ struct AnalyticsView: View {
             switch self {
             case .transactions: "Transactions"
             case .categories: "Categories"
+            case .balance: "Balance & Heatmap"
+            case .forecast: "Forecast & Budgets"
+            case .comparison: "Comparison & Recurring"
+            case .patterns: "Spend Patterns"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .transactions: "list.bullet.rectangle"
+            case .categories: "tag.circle"
+            case .balance: "chart.line.uptrend.xyaxis"
+            case .forecast: "wand.and.stars"
+            case .comparison: "arrow.left.arrow.right.square"
+            case .patterns: "clock.badge.questionmark"
             }
         }
     }
@@ -43,6 +62,7 @@ struct AnalyticsView: View {
 
     @Query(sort: \Transaction.date) private var allTransactions: [Transaction]
     @Query(sort: \Category.sortOrder) private var categories: [Category]
+    @Query private var recurringRules: [RecurringRule]
 
     @State private var fromDate = (Calendar.current.date(byAdding: .month, value: -6, to: .now) ?? .now).startOfMonth
     @State private var toDate = Date.now
@@ -53,7 +73,7 @@ struct AnalyticsView: View {
     @State private var maxAmountText = ""
     @State private var selectedCategoryIDs: Set<Category.ID> = []
     @State private var sortAscending = false
-    @State private var breakdownTab: BreakdownTab = .transactions
+    @State private var activeTab: AnalyticsTab = .transactions
     @State private var showFilters = false
     @State private var hoveredBucket: Date?
     @State private var hoveredLocation: CGPoint?
@@ -74,6 +94,52 @@ struct AnalyticsView: View {
 
     private var hasActiveFilters: Bool {
         !showIncome || !showExpense || !minAmountText.isEmpty || !maxAmountText.isEmpty || !selectedCategoryIDs.isEmpty
+    }
+
+    private var insightCards: [AnalyticsEngine.Insight] {
+        AnalyticsEngine.generateInsights(
+            current: filteredTransactions,
+            previous: previousTransactions,
+            categories: categories,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd,
+            granularity: granularity
+        )
+    }
+
+    private var balancePoints: [AnalyticsEngine.BalancePoint] {
+        AnalyticsEngine.cumulativeBalanceSeries(
+            allTx: allTransactions,
+            rangeTx: filteredTransactions,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd
+        )
+    }
+
+    private var dailyHeatmapTotals: [AnalyticsEngine.DailyAmount] {
+        AnalyticsEngine.dailyExpenseTotals(filteredTransactions)
+    }
+
+    private var currentMonthForecast: AnalyticsEngine.ForecastResult? {
+        let monthStart = Date.now.startOfMonth
+        let txs = allTransactions.filter { $0.date >= monthStart && $0.date <= monthStart.endOfMonth }
+        return AnalyticsEngine.forecast(month: monthStart, monthTxs: txs, allTx: allTransactions, rules: recurringRules)
+    }
+
+    private var recurringSplit: (committed: Double, discretionary: Double) {
+        AnalyticsEngine.recurringExpenseShare(filteredTransactions)
+    }
+
+    private var ruleSpend: [AnalyticsEngine.RuleSpend] {
+        AnalyticsEngine.recurringRuleSpend(filteredTransactions, rules: recurringRules)
+    }
+
+    private var weekdaySpend: [AnalyticsEngine.WeekdaySpend] {
+        AnalyticsEngine.spendByWeekday(filteredTransactions)
+    }
+
+    private var histogram: [AnalyticsEngine.HistogramBucket] {
+        AnalyticsEngine.expenseHistogram(filteredTransactions)
     }
 
     private var rangeStart: Date {
@@ -301,9 +367,22 @@ struct AnalyticsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 toolbarRow
                 summaryHeader
+                InsightsSection(insights: insightCards)
                 chart
-                budgetBoard
-                breakdownSection
+                switch activeTab {
+                case .transactions:
+                    transactionsBreakdownSection
+                case .categories:
+                    categoriesBreakdownSection
+                case .balance:
+                    balanceContent
+                case .forecast:
+                    forecastContent
+                case .comparison:
+                    comparisonContent
+                case .patterns:
+                    patternsContent
+                }
             }
             .padding()
         }
@@ -311,59 +390,140 @@ struct AnalyticsView: View {
         .frame(minWidth: 780, minHeight: 640)
         #endif
         .navigationTitle("Analytics")
+        .animation(.default, value: activeTab)
+    }
+
+    private var balanceContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            BalanceChartSection(
+                points: balancePoints,
+                openingBalance: AnalyticsEngine.broughtForward(allTx: allTransactions, before: rangeStart)
+            )
+            HeatmapSection(rangeStart: rangeStart, rangeEnd: rangeEnd, dailyTotals: dailyHeatmapTotals)
+        }
+    }
+
+    private var forecastContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if let forecast = currentMonthForecast {
+                ForecastSection(forecast: forecast)
+            } else {
+                ContentUnavailableView(
+                    "No forecast yet",
+                    systemImage: "wand.and.stars",
+                    description: Text("Add transactions or recurring rules to the current month to see a projection.")
+                )
+            }
+            budgetBoard
+        }
+    }
+
+    private var comparisonContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            PeriodComparisonSection()
+            RecurringSplitSection(
+                committed: recurringSplit.committed,
+                discretionary: recurringSplit.discretionary,
+                ruleSpend: ruleSpend
+            )
+        }
+    }
+
+    private var patternsContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SpendPatternsSection(weekdaySpend: weekdaySpend, histogram: histogram, periodSuffix: periodSuffix)
+        }
     }
 
     private var toolbarRow: some View {
-        HStack(spacing: 10) {
-            Button {
-                showFilters = true
-            } label: {
-                Label("Filters", systemImage: "line.3.horizontal.decrease")
-                    .foregroundStyle(hasActiveFilters ? Color.accentColor : .primary)
+        #if os(macOS)
+            HStack(spacing: 10) {
+                filtersButton
+                rangeText
+                Spacer()
+                tabPicker
+                granularityPicker
             }
-            #if os(macOS)
-            .popover(isPresented: $showFilters, arrowEdge: .bottom) {
-                filtersContent
-            }
-            #else
-            .sheet(isPresented: $showFilters) {
-                        NavigationStack {
-                            ScrollView {
-                                filtersContent
-                            }
-                            .toolbar {
-                                ToolbarItem(placement: .confirmationAction) {
-                                    Button("Done") {
-                                        showFilters = false
-                                    }
-                                }
-                            }
-                            .navigationTitle("Filters")
-                            .navigationBarTitleDisplayMode(.inline)
-                        }
-                    }
-            #endif
-                    .accessibilityLabel("Filters")
-
-            Text("\(rangeStart.formatted(style: .medium)) – \(rangeEnd.formatted(style: .medium))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-
-            Spacer()
-
-            Picker("Group by", selection: $granularity) {
-                ForEach(Granularity.allCases) { option in
-                    Text(option.label).tag(option)
+        #else
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    filtersButton
+                    Spacer()
+                    rangeText
+                }
+                HStack {
+                    tabPicker
+                    Spacer()
+                    granularityPicker
                 }
             }
-            .pickerStyle(.menu)
-            #if os(macOS)
-                .frame(width: 140)
-            #endif
-                .accessibilityLabel("Group by")
+        #endif
+    }
+
+    private var filtersButton: some View {
+        Button {
+            showFilters = true
+        } label: {
+            Label("Filters", systemImage: "line.3.horizontal.decrease")
+                .foregroundStyle(hasActiveFilters ? Color.accentColor : .primary)
         }
+        #if os(macOS)
+        .popover(isPresented: $showFilters, arrowEdge: .bottom) {
+            filtersContent
+        }
+        #else
+        .sheet(isPresented: $showFilters) {
+                    NavigationStack {
+                        ScrollView {
+                            filtersContent
+                        }
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") {
+                                    showFilters = false
+                                }
+                            }
+                        }
+                        .navigationTitle("Filters")
+                        .navigationBarTitleDisplayMode(.inline)
+                    }
+                }
+        #endif
+                .accessibilityLabel("Filters")
+    }
+
+    private var rangeText: some View {
+        Text("\(rangeStart.formatted(style: .medium)) – \(rangeEnd.formatted(style: .medium))")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+    }
+
+    private var tabPicker: some View {
+        Picker("Analytics view", selection: $activeTab) {
+            ForEach(AnalyticsTab.allCases) { tab in
+                Label(tab.label, systemImage: tab.icon).tag(tab)
+            }
+        }
+        .pickerStyle(.menu)
+        #if os(macOS)
+            .frame(width: 220)
+        #endif
+            .accessibilityLabel("Analytics view")
+    }
+
+    private var granularityPicker: some View {
+        Picker("Group by", selection: $granularity) {
+            ForEach(Granularity.allCases) { option in
+                Text(option.label).tag(option)
+            }
+        }
+        .pickerStyle(.menu)
+        #if os(macOS)
+            .frame(width: 140)
+        #endif
+            .accessibilityLabel("Group by")
     }
 
     private var filtersContent: some View {
@@ -756,42 +916,37 @@ struct AnalyticsView: View {
         })
     }
 
-    private var breakdownSection: some View {
+    private var transactionsBreakdownSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Picker("Breakdown", selection: $breakdownTab) {
-                    ForEach(BreakdownTab.allCases) { tab in
-                        Text(tab.label).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 260)
-                .labelsHidden()
-                .accessibilityLabel("Breakdown view")
-
+                Text("Transactions")
+                    .font(.headline)
                 Spacer()
-
-                if breakdownTab == .transactions {
-                    Button {
-                        sortAscending.toggle()
-                    } label: {
-                        Label(sortAscending ? "Ascending" : "Descending", systemImage: sortAscending ? "arrow.up" : "arrow.down")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.tint)
-                    .help("Toggle sort order")
-                    .accessibilityLabel("Toggle sort order")
+                Button {
+                    sortAscending.toggle()
+                } label: {
+                    Label(sortAscending ? "Ascending" : "Descending", systemImage: sortAscending ? "arrow.up" : "arrow.down")
+                        .font(.caption)
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .help("Toggle sort order")
+                .accessibilityLabel("Toggle sort order")
             }
 
             GroupBox {
-                switch breakdownTab {
-                case .transactions:
-                    transactionsList
-                case .categories:
-                    categoriesList
-                }
+                transactionsList
+            }
+        }
+    }
+
+    private var categoriesBreakdownSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Categories")
+                .font(.headline)
+
+            GroupBox {
+                categoriesList
             }
         }
     }

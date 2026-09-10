@@ -5,6 +5,7 @@ import SwiftUI
 struct TrendChartView: View {
     @Query private var transactions: [Transaction]
     @State private var selectedCategories = Set<UUID>()
+    @State private var hoveredMonth: Date?
 
     private var expenseCategories: [Category] {
         let categories = transactions.compactMap(\.category).filter { $0.type == .expense }
@@ -64,15 +65,23 @@ struct TrendChartView: View {
             } else if monthCount < 2 {
                 ContentUnavailableView("Need at least 2 months of data to show trends", systemImage: "chart.line.uptrend.xyaxis")
             } else {
-                Chart(trendData) { item in
-                    LineMark(
-                        x: .value("Month", item.month, unit: .month),
-                        y: .value("Amount", item.amount)
-                    )
-                    .foregroundStyle(by: .value("Category", item.categoryName))
-                    .symbol(by: .value("Category", item.categoryName))
-                    .accessibilityLabel("\(item.categoryName), \(item.month.formatted(.dateTime.month(.wide).year()))")
-                    .accessibilityValue(item.amount.formattedCurrency)
+                Chart {
+                    ForEach(trendData) { item in
+                        LineMark(
+                            x: .value("Month", item.month, unit: .month),
+                            y: .value("Amount", item.amount)
+                        )
+                        .foregroundStyle(by: .value("Category", item.categoryName))
+                        .symbol(by: .value("Category", item.categoryName))
+                        .accessibilityLabel("\(item.categoryName), \(item.month.formatted(.dateTime.month(.wide).year()))")
+                        .accessibilityValue(item.amount.formattedCurrency)
+                    }
+
+                    if let hoveredMonth {
+                        RuleMark(x: .value("Hovered", hoveredMonth, unit: .month))
+                            .foregroundStyle(.secondary.opacity(0.5))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    }
                 }
                 .chartForegroundStyleScale(domain: colorDomain, range: colorRange)
                 .chartYAxis {
@@ -85,6 +94,37 @@ struct TrendChartView: View {
                         }
                     }
                 }
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(.clear)
+                            .contentShape(Rectangle())
+                            .onContinuousHover { phase in
+                                switch phase {
+                                case let .active(location):
+                                    guard let plotRect = proxy.plotFrame else {
+                                        hoveredMonth = nil
+                                        return
+                                    }
+                                    let plotFrame = geometry[plotRect]
+                                    let x = location.x - plotFrame.origin.x
+                                    if x >= 0, x <= plotFrame.width, let month: Date = proxy.value(atX: x) {
+                                        hoveredMonth = month.startOfMonth
+                                    } else {
+                                        hoveredMonth = nil
+                                    }
+                                case .ended:
+                                    hoveredMonth = nil
+                                }
+                            }
+                    }
+                }
+                .overlay(alignment: .topLeading) {
+                    if let month = hoveredMonth {
+                        monthTooltip(month)
+                            .padding(4)
+                    }
+                }
                 .frame(height: 280)
                 .animation(.default, value: trendData.count)
             }
@@ -95,6 +135,35 @@ struct TrendChartView: View {
         }
         .padding()
         .navigationTitle("Spending Trends")
+    }
+
+    private func monthTooltip(_ month: Date) -> some View {
+        let monthKey = month.startOfMonth
+        let items = trendData
+            .filter { Calendar.current.isDate($0.month, equalTo: monthKey, toGranularity: .month) }
+            .sorted { $0.amount > $1.amount }
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(monthKey.formatted(.dateTime.month(.wide).year()))
+                .font(.caption.weight(.semibold))
+
+            ForEach(items, id: \.categoryName) { item in
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: item.categoryColor))
+                        .frame(width: 8, height: 8)
+                    Text(item.categoryName)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(item.amount.formattedCurrency)
+                        .fontWeight(.semibold)
+                }
+                .font(.caption)
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .fixedSize()
     }
 
     private var categoryToggles: some View {

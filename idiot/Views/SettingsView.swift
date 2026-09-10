@@ -33,6 +33,12 @@ struct SettingsView: View {
                     } label: {
                         Label("View Spending Trends", systemImage: "chart.line.uptrend.xyaxis")
                     }
+
+                    NavigationLink {
+                        HelpView()
+                    } label: {
+                        Label("Help & Savings Guide", systemImage: "questionmark.circle")
+                    }
                 }
 
                 Section {
