@@ -15,10 +15,11 @@ struct idiotApp: App {
     init() {
         do {
             let configuration = ModelConfiguration(cloudKitDatabase: .private("iCloud.com.umangsurana.idiot"))
-            container = try ModelContainer(for: Category.self, Transaction.self, configurations: configuration)
+            container = try ModelContainer(for: Category.self, Transaction.self, RecurringRule.self, configurations: configuration)
             let context = ModelContext(container)
             DefaultCategories.seedIfNeeded(context: context)
             DefaultCategories.reconcileDuplicates(context: context)
+            RecurringEngine.materialize(context: context)
             CloudSyncMonitor.shared.start()
         } catch {
             fatalError("Failed to create model container: \(error.localizedDescription)")

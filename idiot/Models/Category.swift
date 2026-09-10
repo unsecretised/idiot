@@ -13,6 +13,7 @@ final class Category {
     var sortOrder: Int = 0
     var syncStamp: Date = Date()
     @Relationship(deleteRule: .cascade, inverse: \Transaction.category) var transactions: [Transaction]?
+    @Relationship(deleteRule: .cascade, inverse: \RecurringRule.category) var recurringRules: [RecurringRule]?
 
     init(
         id: UUID = UUID(),

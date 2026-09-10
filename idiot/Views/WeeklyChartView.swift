@@ -134,6 +134,24 @@ struct WeeklyChartView: View {
         broughtForwardBalance + monthlyNet
     }
 
+    private var recurringTransactions: [Transaction] {
+        let start = selectedMonth.startOfMonth
+        let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? start
+        return allTransactions.filter { $0.recurringRuleID != nil && $0.date >= start && $0.date < end }
+    }
+
+    private var recurringCount: Int {
+        recurringTransactions.count
+    }
+
+    private var recurringExpense: Double {
+        recurringTransactions.filter { $0.category?.type == .expense }.reduce(0) { $0 + $1.amount }
+    }
+
+    private var recurringIncome: Double {
+        recurringTransactions.filter { $0.category?.type == .income }.reduce(0) { $0 + $1.amount }
+    }
+
     private var balanceColor: Color {
         if totalBalance > 0 {
             return .green
@@ -228,6 +246,18 @@ struct WeeklyChartView: View {
                     }
                     .font(.caption.weight(.semibold))
                 }
+            }
+
+            if recurringCount > 0 {
+                Text([
+                    "\(recurringCount) recurring",
+                    recurringExpense > 0 ? "−\(recurringExpense.formattedCurrency)" : nil,
+                    recurringIncome > 0 ? "+\(recurringIncome.formattedCurrency)" : nil,
+                ]
+                .compactMap { $0 }
+                .joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Chart(weeklyData) { item in

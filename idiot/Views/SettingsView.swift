@@ -36,6 +36,22 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        RecurringListView(type: .expense)
+                    } label: {
+                        Label("Subscriptions", systemImage: "repeat")
+                    }
+                    .accessibilityLabel("Manage Subscriptions")
+
+                    NavigationLink {
+                        RecurringListView(type: .income)
+                    } label: {
+                        Label("Auto Salary", systemImage: "dollarsign.circle")
+                    }
+                    .accessibilityLabel("Manage Auto Salary")
+                }
+
+                Section {
                     Toggle("Lock past months from editing", isOn: $lockPastMonths)
                 } footer: {
                     Text("When enabled, transactions in previous months cannot be edited, copied, or deleted.")

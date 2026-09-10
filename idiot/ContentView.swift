@@ -57,7 +57,9 @@ struct ContentView: View {
                 showExpense: $showExpense
             )
         }
+        #if os(macOS)
         .padding(.top, 32)
+        #endif
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }

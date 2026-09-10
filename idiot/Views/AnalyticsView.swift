@@ -84,9 +84,20 @@ struct AnalyticsView: View {
         max(fromDate, toDate).endOfDay
     }
 
-    private var filteredTransactions: [Transaction] {
+    private var previousRange: PeriodRange {
+        let span = rangeEnd.timeIntervalSince(rangeStart)
+        let start = rangeStart.addingTimeInterval(-span)
+        return PeriodRange(start: start, end: max(rangeStart.addingTimeInterval(-1), start))
+    }
+
+    private struct PeriodRange {
+        let start: Date
+        let end: Date
+    }
+
+    private func transactions(in range: PeriodRange) -> [Transaction] {
         allTransactions.filter { tx in
-            guard tx.date >= rangeStart, tx.date <= rangeEnd else { return false }
+            guard tx.date >= range.start, tx.date <= range.end else { return false }
             let type = tx.category?.type ?? .expense
             if type == .income, !showIncome {
                 return false
@@ -107,6 +118,36 @@ struct AnalyticsView: View {
             }
             return true
         }
+    }
+
+    private var filteredTransactions: [Transaction] {
+        transactions(in: PeriodRange(start: rangeStart, end: rangeEnd))
+    }
+
+    private var previousTransactions: [Transaction] {
+        transactions(in: previousRange)
+    }
+
+    private var prevIncomeTotal: Double {
+        previousTransactions.filter { ($0.category?.type ?? .expense) == .income }.reduce(0) { $0 + $1.amount }
+    }
+
+    private var prevExpenseTotal: Double {
+        previousTransactions.filter { ($0.category?.type ?? .expense) == .expense }.reduce(0) { $0 + $1.amount }
+    }
+
+    private var prevNetTotal: Double {
+        prevIncomeTotal - prevExpenseTotal
+    }
+
+    private static func percentDelta(current: Double, previous: Double) -> Double? {
+        guard previous != 0 else { return nil }
+        return (current - previous) / abs(previous) * 100
+    }
+
+    private var savingsRate: Double? {
+        guard incomeTotal > 0 else { return nil }
+        return netTotal / incomeTotal * 100
     }
 
     private var sortedTransactions: [Transaction] {
@@ -261,6 +302,7 @@ struct AnalyticsView: View {
                 toolbarRow
                 summaryHeader
                 chart
+                budgetBoard
                 breakdownSection
             }
             .padding()
@@ -272,21 +314,42 @@ struct AnalyticsView: View {
     }
 
     private var toolbarRow: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Button {
                 showFilters = true
             } label: {
                 Label("Filters", systemImage: "line.3.horizontal.decrease")
                     .foregroundStyle(hasActiveFilters ? Color.accentColor : .primary)
             }
+            #if os(macOS)
             .popover(isPresented: $showFilters, arrowEdge: .bottom) {
-                filtersPopover
+                filtersContent
             }
-            .accessibilityLabel("Filters")
+            #else
+            .sheet(isPresented: $showFilters) {
+                        NavigationStack {
+                            ScrollView {
+                                filtersContent
+                            }
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button("Done") {
+                                        showFilters = false
+                                    }
+                                }
+                            }
+                            .navigationTitle("Filters")
+                            .navigationBarTitleDisplayMode(.inline)
+                        }
+                    }
+            #endif
+                    .accessibilityLabel("Filters")
 
             Text("\(rangeStart.formatted(style: .medium)) – \(rangeEnd.formatted(style: .medium))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
             Spacer()
 
@@ -296,12 +359,14 @@ struct AnalyticsView: View {
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 140)
-            .accessibilityLabel("Group by")
+            #if os(macOS)
+                .frame(width: 140)
+            #endif
+                .accessibilityLabel("Group by")
         }
     }
 
-    private var filtersPopover: some View {
+    private var filtersContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Filters")
@@ -319,41 +384,57 @@ struct AnalyticsView: View {
             DatePicker("From", selection: $fromDate)
             DatePicker("To", selection: $toDate)
 
-            HStack(spacing: 12) {
-                Toggle(isOn: $showIncome) {
-                    Text("Income")
-                        .foregroundStyle(.green)
+            #if os(macOS)
+                HStack(spacing: 12) {
+                    togglesRow
+                    Spacer()
+                    amountRangeRow
                 }
-                .fixedSize()
-
-                Toggle(isOn: $showExpense) {
-                    Text("Expenses")
-                        .foregroundStyle(.red)
-                }
-                .fixedSize()
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    Text("Min")
-                        .foregroundStyle(.secondary)
-                    TextField("None", text: $minAmountText)
-                        .frame(width: 70)
-                    Text("Max")
-                        .foregroundStyle(.secondary)
-                    TextField("None", text: $maxAmountText)
-                        .frame(width: 70)
-                }
-            }
+            #else
+                togglesRow
+                amountRangeRow
+            #endif
 
             Divider()
 
             categoryToggles
         }
         .padding(16)
-        .frame(width: 430)
+        #if os(macOS)
+            .frame(width: 430)
+        #endif
     }
 
+    private var togglesRow: some View {
+        HStack(spacing: 12) {
+            Toggle(isOn: $showIncome) {
+                Text("Income")
+                    .foregroundStyle(.green)
+            }
+            .fixedSize()
+
+            Toggle(isOn: $showExpense) {
+                Text("Expenses")
+                    .foregroundStyle(.red)
+            }
+            .fixedSize()
+        }
+    }
+
+    private var amountRangeRow: some View {
+        HStack(spacing: 6) {
+            Text("Min")
+                .foregroundStyle(.secondary)
+            TextField("None", text: $minAmountText)
+                .frame(width: 70)
+            Text("Max")
+                .foregroundStyle(.secondary)
+            TextField("None", text: $maxAmountText)
+                .frame(width: 70)
+        }
+    }
+
+    @ViewBuilder
     private var summaryHeader: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
@@ -362,6 +443,12 @@ struct AnalyticsView: View {
                 Text("\(filteredTransactions.count) transactions")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if let rate = savingsRate {
+                    Text("Savings rate: \(String(format: "%.0f", max(rate, 0)))%")
+                        .font(.caption)
+                        .foregroundStyle(rate >= 0 ? .green : .red)
+                }
             }
 
             Spacer()
@@ -385,6 +472,35 @@ struct AnalyticsView: View {
                 .font(.callout)
             }
         }
+
+        deltaRow
+    }
+
+    private var deltaRow: some View {
+        HStack(spacing: 14) {
+            deltaBadge(label: "Income vs prev period", current: incomeTotal, previous: prevIncomeTotal)
+            deltaBadge(label: "Expenses vs prev period", current: expenseTotal, previous: prevExpenseTotal)
+            deltaBadge(label: "Net vs prev period", current: netTotal, previous: prevNetTotal)
+        }
+        .font(.caption)
+    }
+
+    @ViewBuilder
+    private func deltaBadge(label: String, current: Double, previous: Double) -> some View {
+        if let delta = Self.percentDelta(current: current, previous: previous) {
+            let up = delta > 0
+            HStack(spacing: 3) {
+                Image(systemName: up ? "arrow.up" : "arrow.down")
+                    .font(.caption2)
+                Text("\(String(format: "%.0f", abs(delta)))%")
+            }
+            .foregroundStyle(
+                label.contains("Expenses")
+                    ? (up ? Color.red : .green)
+                    : (up ? Color.green : .red)
+            )
+            .help("\(label): \(previous.formattedCurrency) → \(current.formattedCurrency)")
+        }
     }
 
     @ViewBuilder
@@ -399,6 +515,126 @@ struct AnalyticsView: View {
         } else {
             dataChart
         }
+    }
+
+    private var monthsSpan: Int {
+        let diff = Calendar.current.dateComponents([.month], from: rangeStart, to: rangeEnd).month ?? 0
+        return max(1, diff + 1)
+    }
+
+    @ViewBuilder
+    private var budgetBoard: some View {
+        let budgets = budgetStats
+        if !budgets.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Budget Board")
+                    .font(.headline)
+
+                GroupBox {
+                    VStack(spacing: 12) {
+                        ForEach(budgets) { budget in
+                            budgetRow(budget)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private struct BudgetStat: Identifiable {
+        let id: UUID
+        let name: String
+        let colorHex: String
+        let limit: Double
+        let avgPerMonth: Double
+        let monthsOver: Int
+
+        var percent: Double {
+            limit > 0 ? avgPerMonth / limit * 100 : 0
+        }
+    }
+
+    private var budgetStats: [BudgetStat] {
+        var limits: [Category] = []
+        for category in categories where category.type == .expense {
+            if category.limit != nil {
+                limits.append(category)
+            }
+        }
+
+        let months = Double(monthsSpan)
+        return limits.map { category in
+            let total = filteredTransactions
+                .filter { $0.category?.id == category.id && ($0.category?.type ?? .expense) == .expense }
+                .reduce(0) { $0 + $1.amount }
+            let avg = total / months
+
+            var monthsOver = 0
+            var cursor = rangeStart
+            let calendar = Calendar.current
+            while cursor <= rangeEnd {
+                guard let monthEnd = calendar.date(byAdding: .month, value: 1, to: cursor.startOfMonth) else { break }
+                let monthTotal = filteredTransactions
+                    .filter { $0.category?.id == category.id }
+                    .filter { $0.date >= cursor && $0.date < monthEnd }
+                    .reduce(0) { $0 + $1.amount }
+                if category.limit.map({ monthTotal > $0 }) == true {
+                    monthsOver += 1
+                }
+                cursor = monthEnd
+            }
+
+            return BudgetStat(
+                id: category.id,
+                name: category.name,
+                colorHex: category.colorHex,
+                limit: category.limit ?? 0,
+                avgPerMonth: avg,
+                monthsOver: monthsOver
+            )
+        }
+        .sorted { $0.percent > $1.percent }
+    }
+
+    private func budgetRow(_ budget: BudgetStat) -> some View {
+        let over = budget.avgPerMonth > budget.limit
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color(hex: budget.colorHex))
+                    .frame(width: 8, height: 8)
+                Text(budget.name)
+                Spacer()
+                Text("\(budget.avgPerMonth.formattedCurrency) / \(budget.limit.formattedCurrency)")
+                    .monospacedDigit()
+                    .fontWeight(.semibold)
+                    .foregroundStyle(over ? .red : .primary)
+                Text(String(format: "%.0f%%", min(budget.percent, 999)))
+                    .monospacedDigit()
+                    .foregroundStyle(over ? .red : .secondary)
+                    .frame(width: 44, alignment: .trailing)
+            }
+
+            ProgressView(value: min(max(budget.percent, 0), 100) / 100)
+                .tint(over ? .red : Color(hex: budget.colorHex))
+
+            if budget.monthsOver > 0 {
+                Text("Over limit in \(budget.monthsOver) of \(monthsSpan) month(s) · avg over the range \(budget.avgPerMonth.formattedCurrency)/mo")
+                    .font(.caption)
+                    .foregroundStyle(over ? .red : .secondary)
+            }
+        }
+        .font(.callout)
+    }
+
+    private var topTransactions: [Transaction] {
+        Array(
+            filteredTransactions
+                .filter { ($0.category?.type ?? .expense) == .expense }
+                .sorted { $0.amount > $1.amount }
+                .prefix(3)
+        )
     }
 
     private var dataChart: some View {
@@ -570,6 +806,25 @@ struct AnalyticsView: View {
                 .padding(.vertical, 8)
         } else {
             VStack(spacing: 8) {
+                let topIDs = Set(topTransactions.map(\.id))
+                if !topIDs.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "flame")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        Text("Biggest expense: \(topTransactions.first.map { "\($0.title) (\($0.amount.formattedCurrency))" } ?? "")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        let avg = sortedTransactions.filter { ($0.category?.type ?? .expense) == .expense }.map(\.amount).averageOrZero
+                        if avg > 0 {
+                            Text("avg \(avg.formattedCurrency)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 ForEach(sortedTransactions) { tx in
                     transactionRow(tx)
                 }
@@ -655,6 +910,7 @@ struct AnalyticsView: View {
     private func transactionRow(_ tx: Transaction) -> some View {
         let type = tx.category?.type ?? .expense
         let colorHex = tx.category?.colorHex ?? "#8E8E93"
+        let isTop = topTransactions.contains { $0.id == tx.id }
         return HStack(spacing: 8) {
             Circle()
                 .fill(Color(hex: colorHex))
@@ -665,8 +921,18 @@ struct AnalyticsView: View {
                 .foregroundStyle(Color(hex: colorHex))
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(tx.title.isEmpty ? "Untitled" : tx.title)
-                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Text(tx.title.isEmpty ? "Untitled" : tx.title)
+                        .lineLimit(1)
+                    if isTop {
+                        Text("TOP")
+                            .font(.system(size: 8, weight: .bold))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(.orange.opacity(0.2), in: Capsule())
+                            .foregroundStyle(.orange)
+                    }
+                }
                 Text("\(tx.category?.name ?? "Uncategorized") · \(tx.date.formatted(style: .medium))")
                     .font(.caption)
                     .foregroundStyle(.secondary)

@@ -11,6 +11,7 @@ final class Transaction {
     var category: Category?
     var createdAt: Date = Date()
     var syncStamp: Date = Date()
+    var recurringRuleID: UUID?
 
     init(
         id: UUID = UUID(),
@@ -19,7 +20,8 @@ final class Transaction {
         amount: Double = 0,
         date: Date = .now,
         category: Category? = nil,
-        createdAt: Date = .now
+        createdAt: Date = .now,
+        recurringRuleID: UUID? = nil
     ) {
         self.id = id
         self.title = title
@@ -28,5 +30,6 @@ final class Transaction {
         self.date = date
         self.category = category
         self.createdAt = createdAt
+        self.recurringRuleID = recurringRuleID
     }
 }
