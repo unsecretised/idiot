@@ -18,3 +18,9 @@
 - `RecurringFormView` — add/edit rules; mode `.subscription` or `.salary` (filters income/expense categories accordingly).
 - `RecurringListView` — rule rows with next-due, monthly estimate footers, pause badge, delete alert with "keep past transactions" vs "delete rule + generated transactions".
 - Entry points in Settings via NavigationLinks; recurring summary chip shown in WeeklyChartView header when the selected month contains recurring items.
+
+## Phase 11b — Widgets
+- New `IdiotWidgets` app-extension target (hand-wired in project.pbxproj; classic PBXGroup + build files, embedded via "Embed App Extensions" CopyFiles phase).
+- Widgets: Recent Transactions (medium/large), Analytics (medium/large), New Transaction (small, deep-links `idiot://add`).
+- Data path: app writes a JSON snapshot (`Helpers/WidgetSnapshotWriter.swift`) to App Group `group.com.umangsurana.idiot` on launch/transaction change; widgets read it and deep-link via `idiot://` URLs registered in `idiot/Info.plist`.
+- App Group added to both entitlements; widget bundle id `com.umangsurana.idiot.widgets`.

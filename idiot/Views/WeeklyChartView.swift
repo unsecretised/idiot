@@ -11,6 +11,7 @@ struct WeeklyChartView: View {
     let showExpense: Bool
 
     @Query(sort: \Transaction.date) private var allTransactions: [Transaction]
+    @Environment(\.modelContext) private var modelContext
     @State private var hoveredWeekLabel: String?
     @State private var hoveredLocation: CGPoint?
     @State private var chartSize: CGSize = .zero
@@ -424,6 +425,12 @@ struct WeeklyChartView: View {
         }
         .padding(.horizontal)
         .padding(.bottom, 12)
+        .onAppear {
+            WidgetSnapshotWriter.write(context: modelContext)
+        }
+        .onChange(of: allTransactions) {
+            WidgetSnapshotWriter.write(context: modelContext)
+        }
     }
 
     private func tooltipOffset(_ location: CGPoint, tooltipSize: CGSize) -> CGPoint {

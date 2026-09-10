@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var maxAmountText = ""
     @State private var showIncome = true
     @State private var showExpense = true
+    @State private var showAddTransaction = false
 
     private var minAmount: Double? {
         let trimmed = minAmountText.trimmingCharacters(in: .whitespaces)
@@ -50,6 +51,7 @@ struct ContentView: View {
 
             TransactionListView(
                 selectedMonth: selectedMonth,
+                showAddTransaction: $showAddTransaction,
                 hiddenCategoryIDs: $hiddenCategoryIDs,
                 minAmountText: $minAmountText,
                 maxAmountText: $maxAmountText,
@@ -66,5 +68,27 @@ struct ContentView: View {
         .sheet(isPresented: $showAnalytics) {
             AnalyticsView()
         }
+        .onOpenURL { url in
+            switch url.host {
+            case "add":
+                showAddTransaction = true
+            case "analytics":
+                #if os(macOS)
+                    openAnalyticsWindow()
+                #else
+                    showAnalytics = true
+                #endif
+            default:
+                break
+            }
+        }
     }
+
+    #if os(macOS)
+        @Environment(\.openWindow) private var openWindow
+
+        private func openAnalyticsWindow() {
+            openWindow(id: "analytics")
+        }
+    #endif
 }

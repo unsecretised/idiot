@@ -6,19 +6,74 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		1D4A000D0000000000000D /* IdiotWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 1D4A00010000000000000001 /* IdiotWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeaders, ); }; };
+		1D4A00130000000000000013 /* IdiotWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4A000F0000000000000F /* IdiotWidgets.swift */; };
+		1D4A00140000000000000014 /* Widgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4A00100000000000000010 /* Widgets.swift */; };
+		1D4A00150000000000000015 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4A00110000000000000011 /* WidgetSnapshot.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1D4A000A0000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7BEB21053015E760009027E2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1D4A00030000000000000003;
+			remoteInfo = IdiotWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1D4A000C0000000000000C /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				1D4A000D0000000000000D /* IdiotWidgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		1D4A00010000000000000001 /* IdiotWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = IdiotWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D4A000F0000000000000F /* IdiotWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdiotWidgets.swift; sourceTree = "<group>"; };
+		1D4A00100000000000000010 /* Widgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widgets.swift; sourceTree = "<group>"; };
+		1D4A00110000000000000011 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		7BEB210D3015E760009027E2 /* idiot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = idiot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1D4A000E0000000000000E /* Exceptions for "idiot" folder in "idiot" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7BEB210C3015E760009027E2 /* idiot */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7BEB210F3015E760009027E2 /* idiot */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1D4A000E0000000000000E /* Exceptions for "idiot" folder in "idiot" target */,
+			);
 			path = idiot;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1D4A00050000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7BEB210A3015E760009027E2 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -29,10 +84,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1D4A00020000000000000002 /* IdiotWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				1D4A000F0000000000000F /* IdiotWidgets.swift */,
+				1D4A00100000000000000010 /* Widgets.swift */,
+				1D4A00110000000000000011 /* WidgetSnapshot.swift */,
+			);
+			path = IdiotWidgets;
+			sourceTree = "<group>";
+		};
 		7BEB21043015E760009027E2 = {
 			isa = PBXGroup;
 			children = (
 				7BEB210F3015E760009027E2 /* idiot */,
+				1D4A00020000000000000002 /* IdiotWidgets */,
 				7BEB210E3015E760009027E2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				7BEB210D3015E760009027E2 /* idiot.app */,
+				1D4A00010000000000000001 /* IdiotWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,6 +115,25 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		1D4A00030000000000000003 /* IdiotWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1D4A00090000000000000009 /* Build configuration list for PBXNativeTarget "IdiotWidgets" */;
+			buildPhases = (
+				1D4A00040000000000000004 /* Sources */,
+				1D4A00050000000000000005 /* Frameworks */,
+				1D4A00060000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IdiotWidgets;
+			packageProductDependencies = (
+			);
+			productName = IdiotWidgets;
+			productReference = 1D4A00010000000000000001 /* IdiotWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		7BEB210C3015E760009027E2 /* idiot */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7BEB21183015E761009027E2 /* Build configuration list for PBXNativeTarget "idiot" */;
@@ -55,10 +141,12 @@
 				7BEB21093015E760009027E2 /* Sources */,
 				7BEB210A3015E760009027E2 /* Frameworks */,
 				7BEB210B3015E760009027E2 /* Resources */,
+				1D4A000C0000000000000C /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				1D4A000B0000000000000B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				7BEB210F3015E760009027E2 /* idiot */,
@@ -80,6 +168,9 @@
 				LastSwiftUpdateCheck = 2650;
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
+					1D4A00030000000000000003 = {
+						CreatedOnToolsVersion = 26.5;
+					};
 					7BEB210C3015E760009027E2 = {
 						CreatedOnToolsVersion = 26.5;
 					};
@@ -100,11 +191,19 @@
 			projectRoot = "";
 			targets = (
 				7BEB210C3015E760009027E2 /* idiot */,
+				1D4A00030000000000000003 /* IdiotWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1D4A00060000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7BEB210B3015E760009027E2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +214,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1D4A00040000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D4A00130000000000000013 /* IdiotWidgets.swift in Sources */,
+				1D4A00140000000000000014 /* Widgets.swift in Sources */,
+				1D4A00150000000000000015 /* WidgetSnapshot.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7BEB21093015E760009027E2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,7 +233,71 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		1D4A000B0000000000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1D4A00030000000000000003 /* IdiotWidgets */;
+			targetProxy = 1D4A000A0000000000000A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		1D4A00070000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = IdiotWidgets/IdiotWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8ZFQF63RWB;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = IdiotWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.umangsurana.idiot.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1D4A00080000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = IdiotWidgets/IdiotWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8ZFQF63RWB;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = IdiotWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.umangsurana.idiot.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		7BEB21163015E761009027E2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -253,6 +426,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = IdiotIcons;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				AUTOMATION_APPLE_EVENTS = NO;
 				CODE_SIGN_ENTITLEMENTS = Idiot.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -261,8 +435,15 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = idiot/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Idiot;
 				INFOPLIST_KEY_CFBundleIconFile = Idiot;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -278,6 +459,12 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.umangsurana.idiot;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
+				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
+				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
+				RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY = NO;
+				RUNTIME_EXCEPTION_DEBUGGING_TOOL = NO;
+				RUNTIME_EXCEPTION_DISABLE_EXECUTABLE_PAGE_PROTECTION = NO;
+				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = NO;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -295,6 +482,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = IdiotIcons;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				AUTOMATION_APPLE_EVENTS = NO;
 				CODE_SIGN_ENTITLEMENTS = Idiot.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -303,8 +491,15 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = idiot/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Idiot;
 				INFOPLIST_KEY_CFBundleIconFile = Idiot;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -320,6 +515,12 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.umangsurana.idiot;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
+				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
+				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
+				RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY = NO;
+				RUNTIME_EXCEPTION_DEBUGGING_TOOL = NO;
+				RUNTIME_EXCEPTION_DISABLE_EXECUTABLE_PAGE_PROTECTION = NO;
+				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = NO;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -334,6 +535,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1D4A00090000000000000009 /* Build configuration list for PBXNativeTarget "IdiotWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1D4A00070000000000000007 /* Debug */,
+				1D4A00080000000000000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		7BEB21083015E760009027E2 /* Build configuration list for PBXProject "idiot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

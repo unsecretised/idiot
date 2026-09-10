@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TransactionListView: View {
     let selectedMonth: Date
+    @Binding var showAddTransaction: Bool
     @Binding var hiddenCategoryIDs: Set<Category.ID>
     @Binding var minAmountText: String
     @Binding var maxAmountText: String
@@ -13,7 +14,6 @@ struct TransactionListView: View {
     @Query(sort: \Transaction.date, order: .reverse) private var allTransactions: [Transaction]
     @Query(sort: \Category.sortOrder) private var categories: [Category]
     @AppStorage("lockPastMonths") private var lockPastMonths = true
-    @State private var showAddTransaction = false
     @State private var editingTransaction: Transaction?
     @State private var pendingDeleteTransaction: Transaction?
     @State private var selectedTransactionIDs: Set<Transaction.ID> = []
