@@ -292,14 +292,72 @@ struct NewTransactionWidget: Widget {
         }
         .configurationDisplayName("New Transaction")
         .description("Tap to add a transaction in the app.")
-        .supportedFamilies([.systemSmall])
+        .supportedFamilies(NewTransactionWidgetFamilies.list)
     }
 }
 
+private enum NewTransactionWidgetFamilies {
+    #if os(macOS)
+        static let list: [WidgetFamily] = [.systemSmall]
+    #else
+        static let list: [WidgetFamily] = [.systemSmall, .accessoryInline, .accessoryCircular, .accessoryRectangular]
+    #endif
+}
+
 private struct NewTransactionWidgetView: View {
+    @Environment(\.widgetFamily) private var family
     let entry: StaticEntry
 
     var body: some View {
+        switch family {
+        case .accessoryInline:
+            inlineView
+        case .accessoryCircular:
+            circularView
+        case .accessoryRectangular:
+            rectangularView
+        default:
+            homeScreenView
+        }
+    }
+
+    private var inlineView: some View {
+        Label("New transaction", systemImage: "plus.circle.fill")
+            .widgetURL(URL(string: "idiot://add"))
+            .containerBackground(for: .widget) {
+                Color.clear
+            }
+    }
+
+    private var circularView: some View {
+        VStack(spacing: 2) {
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 28, weight: .semibold))
+            Text("Add")
+                .font(.caption2.weight(.semibold))
+        }
+        .widgetURL(URL(string: "idiot://add"))
+        .accessibilityLabel("Add transaction")
+        .containerBackground(for: .widget) {
+            Color.clear
+        }
+    }
+
+    private var rectangularView: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Image(systemName: "plus.circle.fill")
+                .font(.title3.weight(.semibold))
+            Text("New transaction")
+                .font(.caption.weight(.semibold))
+        }
+        .widgetURL(URL(string: "idiot://add"))
+        .accessibilityLabel("Add transaction")
+        .containerBackground(for: .widget) {
+            Color.clear
+        }
+    }
+
+    private var homeScreenView: some View {
         VStack(spacing: 8) {
             Image(systemName: "plus.circle.fill")
                 .font(.system(size: 42, weight: .semibold))

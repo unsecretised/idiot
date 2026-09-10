@@ -64,14 +64,14 @@ struct AnalyticsView: View {
     @Query(sort: \Category.sortOrder) private var categories: [Category]
     @Query private var recurringRules: [RecurringRule]
 
-    @State private var fromDate = (Calendar.current.date(byAdding: .month, value: -6, to: .now) ?? .now).startOfMonth
-    @State private var toDate = Date.now
-    @State private var granularity: Granularity = .monthly
-    @State private var showIncome = true
-    @State private var showExpense = true
-    @State private var minAmountText = ""
-    @State private var maxAmountText = ""
-    @State private var selectedCategoryIDs: Set<Category.ID> = []
+    @AppStorage("analyticsFromDate") private var fromDateValue: Double = 0
+    @AppStorage("analyticsToDate") private var toDateValue: Double = 0
+    @AppStorage("analyticsGranularity") private var granularityRaw = Granularity.monthly.rawValue
+    @AppStorage("analyticsShowIncome") private var showIncome = true
+    @AppStorage("analyticsShowExpense") private var showExpense = true
+    @AppStorage("analyticsMinAmount") private var minAmountText = ""
+    @AppStorage("analyticsMaxAmount") private var maxAmountText = ""
+    @AppStorage("analyticsSelectedCategoryIDs") private var selectedCategoryIDsData = ""
     @State private var sortAscending = false
     @State private var activeTab: AnalyticsTab = .transactions
     @State private var showFilters = false
@@ -79,6 +79,46 @@ struct AnalyticsView: View {
     @State private var hoveredLocation: CGPoint?
     @State private var chartSize: CGSize = .zero
     @State private var tooltipSize: CGSize = .zero
+
+    private var defaultFromDate: Date {
+        (Calendar.current.date(byAdding: .month, value: -6, to: .now) ?? .now).startOfMonth
+    }
+
+    private var fromDate: Date {
+        get { fromDateValue == 0 ? defaultFromDate : Date(timeIntervalSinceReferenceDate: fromDateValue) }
+        nonmutating set { fromDateValue = newValue.timeIntervalSinceReferenceDate }
+    }
+
+    private var toDate: Date {
+        get { toDateValue == 0 ? .now : Date(timeIntervalSinceReferenceDate: toDateValue) }
+        nonmutating set { toDateValue = newValue.timeIntervalSinceReferenceDate }
+    }
+
+    private var fromDateBinding: Binding<Date> {
+        Binding { fromDate } set: { fromDate = $0 }
+    }
+
+    private var toDateBinding: Binding<Date> {
+        Binding { toDate } set: { toDate = $0 }
+    }
+
+    private var granularity: Granularity {
+        get { Granularity(rawValue: granularityRaw) ?? .monthly }
+        nonmutating set { granularityRaw = newValue.rawValue }
+    }
+
+    private var granularityBinding: Binding<Granularity> {
+        Binding { granularity } set: { granularity = $0 }
+    }
+
+    private var selectedCategoryIDs: Set<Category.ID> {
+        get {
+            Set(selectedCategoryIDsData.split(separator: ",").compactMap { UUID(uuidString: String($0)) })
+        }
+        nonmutating set {
+            selectedCategoryIDsData = newValue.map(\.uuidString).sorted().joined(separator: ",")
+        }
+    }
 
     private var minAmount: Double? {
         let trimmed = minAmountText.trimmingCharacters(in: .whitespaces)
@@ -385,6 +425,7 @@ struct AnalyticsView: View {
                 }
             }
             .padding()
+            .textSelection(.enabled)
         }
         #if os(macOS)
         .frame(minWidth: 780, minHeight: 640)
@@ -514,7 +555,7 @@ struct AnalyticsView: View {
     }
 
     private var granularityPicker: some View {
-        Picker("Group by", selection: $granularity) {
+        Picker("Group by", selection: granularityBinding) {
             ForEach(Granularity.allCases) { option in
                 Text(option.label).tag(option)
             }
@@ -541,8 +582,8 @@ struct AnalyticsView: View {
                 .disabled(!hasActiveFilters)
             }
 
-            DatePicker("From", selection: $fromDate)
-            DatePicker("To", selection: $toDate)
+            DatePicker("From", selection: fromDateBinding)
+            DatePicker("To", selection: toDateBinding)
 
             #if os(macOS)
                 HStack(spacing: 12) {
