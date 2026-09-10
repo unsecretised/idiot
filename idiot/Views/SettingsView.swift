@@ -12,6 +12,9 @@ struct SettingsView: View {
     @State private var editingCategory: Category?
     @State private var pendingDeleteCategory: Category?
     @State private var showSystemCategoryAlert = false
+    @State private var isPushing = false
+    @State private var pushError: String?
+    private let syncMonitor = CloudSyncMonitor.shared
 
     private var expenseCategories: [Category] {
         categories.filter { $0.type == .expense }.sorted { $0.sortOrder < $1.sortOrder }
@@ -38,10 +41,38 @@ struct SettingsView: View {
                     Text("When enabled, transactions in previous months cannot be edited, copied, or deleted.")
                 }
 
+                Section {
+                    LabeledContent("Status") {
+                        Text(syncMonitor.statusText)
+                            .foregroundStyle(syncMonitor.showsError ? .red : .secondary)
+                            .monospacedDigit()
+                    }
+
+                    Button {
+                        forcePush()
+                    } label: {
+                        HStack {
+                            Label("Force Push to iCloud", systemImage: "icloud.and.arrow.up")
+                            if isPushing {
+                                Spacer()
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .disabled(isPushing)
+                } header: {
+                    Text("iCloud Sync")
+                } footer: {
+                    Text("Changes sync automatically. Use Force Push if a device seems out of date — it re-uploads all local data to your private iCloud database.")
+                }
+
                 categorySection("Expense", categories: expenseCategories)
                 categorySection("Income", categories: incomeCategories)
             }
             .navigationTitle("Settings")
+            .task {
+                await syncMonitor.refreshAccountStatus()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
@@ -82,7 +113,46 @@ struct SettingsView: View {
             } message: {
                 Text("This will remove the category from your tracker.")
             }
+            .alert("Force Push Failed", isPresented: pushErrorBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(pushError ?? "Unknown error.")
+            }
+            #if os(macOS)
             .frame(minWidth: 520, minHeight: 520)
+            #endif
+        }
+    }
+
+    private func forcePush() {
+        guard !isPushing else { return }
+        isPushing = true
+        pushError = nil
+
+        Task {
+            do {
+                let now = Date()
+                for transaction in try modelContext.fetch(FetchDescriptor<Transaction>()) {
+                    transaction.syncStamp = now
+                }
+                for category in try modelContext.fetch(FetchDescriptor<Category>()) {
+                    category.syncStamp = now
+                }
+                try modelContext.save()
+            } catch {
+                pushError = error.localizedDescription
+            }
+            isPushing = false
+        }
+    }
+
+    private var pushErrorBinding: Binding<Bool> {
+        Binding {
+            pushError != nil
+        } set: { isPresented in
+            if !isPresented {
+                pushError = nil
+            }
         }
     }
 

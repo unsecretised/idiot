@@ -265,7 +265,9 @@ struct AnalyticsView: View {
             }
             .padding()
         }
+        #if os(macOS)
         .frame(minWidth: 780, minHeight: 640)
+        #endif
         .navigationTitle("Analytics")
     }
 
@@ -706,7 +708,9 @@ struct AnalyticsView: View {
                         Label(category.name, systemImage: category.iconName)
                             .foregroundStyle(Color(hex: category.colorHex))
                     }
+                    #if os(macOS)
                     .toggleStyle(.checkbox)
+                    #endif
                 }
             }
         }

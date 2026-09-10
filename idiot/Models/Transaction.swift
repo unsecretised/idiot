@@ -3,13 +3,14 @@ import SwiftData
 
 @Model
 final class Transaction {
-    @Attribute(.unique) var id: UUID
-    var title: String
+    var id: UUID = UUID()
+    var title: String = ""
     var desc: String?
-    var amount: Double
-    var date: Date
+    var amount: Double = 0
+    var date: Date = Date()
     var category: Category?
-    var createdAt: Date
+    var createdAt: Date = Date()
+    var syncStamp: Date = Date()
 
     init(
         id: UUID = UUID(),

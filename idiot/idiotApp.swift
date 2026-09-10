@@ -14,8 +14,12 @@ struct idiotApp: App {
 
     init() {
         do {
-            container = try ModelContainer(for: Category.self, Transaction.self)
-            DefaultCategories.seed(context: ModelContext(container))
+            let configuration = ModelConfiguration(cloudKitDatabase: .private("iCloud.com.umangsurana.idiot"))
+            container = try ModelContainer(for: Category.self, Transaction.self, configurations: configuration)
+            let context = ModelContext(container)
+            DefaultCategories.seedIfNeeded(context: context)
+            DefaultCategories.reconcileDuplicates(context: context)
+            CloudSyncMonitor.shared.start()
         } catch {
             fatalError("Failed to create model container: \(error.localizedDescription)")
         }
@@ -24,33 +28,47 @@ struct idiotApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+            #if os(macOS)
                 .frame(minWidth: 750, idealWidth: 750, maxWidth: 750)
                 .frame(idealHeight: 600)
+            #endif
         }
+        #if os(macOS)
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
-        .modelContainer(container)
         .commands {
             AnalyticsCommands()
         }
-
-        Window("Analytics", id: "analytics") {
-            AnalyticsView()
-        }
-        .defaultSize(width: 880, height: 700)
+        #endif
         .modelContainer(container)
+
+        #if os(macOS)
+            analyticsWindow
+        #endif
     }
+
+    #if os(macOS)
+        private var analyticsWindow: some Scene {
+            Window("Analytics", id: "analytics") {
+                AnalyticsView()
+            }
+            .defaultSize(width: 880, height: 700)
+            .modelContainer(container)
+        }
+    #endif
 }
 
-struct AnalyticsCommands: Commands {
-    @Environment(\.openWindow) private var openWindow
+#if os(macOS)
+    struct AnalyticsCommands: Commands {
+        @Environment(\.openWindow) private var openWindow
 
-    var body: some Commands {
-        CommandMenu("View") {
-            Button("Analytics") {
-                openWindow(id: "analytics")
+        var body: some Commands {
+            CommandMenu("View") {
+                Button("Analytics") {
+                    openWindow(id: "analytics")
+                }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
             }
-            .keyboardShortcut("a", modifiers: [.command, .shift])
         }
     }
-}
+#endif

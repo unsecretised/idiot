@@ -289,106 +289,108 @@ struct WeeklyChartView: View {
             }
             .frame(height: 320)
             .clipped()
-            .background(ScrollWheelHandler { delta in
-                let factor = exp(delta * 0.02)
-                yZoom = max(1.0, yZoom * factor)
-                lastZoom = yZoom
-            })
-            .simultaneousGesture(
-                MagnificationGesture()
-                    .onChanged { value in
-                        yZoom = max(1.0, lastZoom * value)
+            #if os(macOS)
+                .background(ScrollWheelHandler { delta in
+                    let factor = exp(delta * 0.02)
+                    yZoom = max(1.0, yZoom * factor)
+                    lastZoom = yZoom
+                })
+            #endif
+                .simultaneousGesture(
+                    MagnificationGesture()
+                        .onChanged { value in
+                            yZoom = max(1.0, lastZoom * value)
+                        }
+                        .onEnded { _ in
+                            lastZoom = yZoom
+                        }
+                )
+                .simultaneousGesture(
+                    DragGesture()
+                        .onChanged { value in
+                            let range = maxAbsoluteAmount / Double(yZoom)
+                            let chartH = max(chartSize.height, 320)
+                            yPan = lastPan - Double(value.translation.height) / Double(chartH) * 2 * range
+                        }
+                        .onEnded { _ in
+                            lastPan = yPan
+                        }
+                )
+                .simultaneousGesture(
+                    TapGesture(count: 2).onEnded { resetYZoom() }
+                )
+                .overlay(alignment: .topTrailing) {
+                    if yZoom > 1.01 || abs(yPan) > 0.01 {
+                        Button {
+                            resetYZoom()
+                        } label: {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(6)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Reset zoom")
+                        .padding(6)
                     }
-                    .onEnded { _ in
-                        lastZoom = yZoom
-                    }
-            )
-            .simultaneousGesture(
-                DragGesture()
-                    .onChanged { value in
-                        let range = maxAbsoluteAmount / Double(yZoom)
-                        let chartH = max(chartSize.height, 320)
-                        yPan = lastPan - Double(value.translation.height) / Double(chartH) * 2 * range
-                    }
-                    .onEnded { _ in
-                        lastPan = yPan
-                    }
-            )
-            .simultaneousGesture(
-                TapGesture(count: 2).onEnded { resetYZoom() }
-            )
-            .overlay(alignment: .topTrailing) {
-                if yZoom > 1.01 || abs(yPan) > 0.01 {
-                    Button {
-                        resetYZoom()
-                    } label: {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(6)
-                            .background(.regularMaterial, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Reset zoom")
-                    .padding(6)
                 }
-            }
-            .overlay(alignment: .topLeading) {
-                if let location = hoveredLocation, !hoveredWeekDetails.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(hoveredWeekLabel ?? "")
-                            .font(.caption.weight(.semibold))
-                        ForEach(hoveredWeekDetails, id: \.categoryName) { detail in
-                            HStack(spacing: 6) {
-                                Circle()
-                                    .fill(Color(hex: detail.colorHex))
-                                    .frame(width: 8, height: 8)
-                                Text(detail.categoryName)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text(detail.amount.formattedCurrency)
-                                    .fontWeight(.semibold)
+                .overlay(alignment: .topLeading) {
+                    if let location = hoveredLocation, !hoveredWeekDetails.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(hoveredWeekLabel ?? "")
+                                .font(.caption.weight(.semibold))
+                            ForEach(hoveredWeekDetails, id: \.categoryName) { detail in
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(Color(hex: detail.colorHex))
+                                        .frame(width: 8, height: 8)
+                                    Text(detail.categoryName)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text(detail.amount.formattedCurrency)
+                                        .fontWeight(.semibold)
+                                }
+                                .font(.caption)
                             }
-                            .font(.caption)
-                        }
 
-                        Divider()
-                        HStack {
-                            Text("Total expenses")
-                                .foregroundStyle(.red)
-                            Spacer()
-                            Text(hoveredExpensesTotal.formattedCurrency)
-                                .foregroundStyle(.red)
+                            Divider()
+                            HStack {
+                                Text("Total expenses")
+                                    .foregroundStyle(.red)
+                                Spacer()
+                                Text(hoveredExpensesTotal.formattedCurrency)
+                                    .foregroundStyle(.red)
+                            }
+                            HStack {
+                                Text("Total income")
+                                    .foregroundStyle(.green)
+                                Spacer()
+                                Text(hoveredIncomeTotal.formattedCurrency)
+                                    .foregroundStyle(.green)
+                            }
+                            HStack {
+                                Text("Net")
+                                    .fontWeight(.bold)
+                                Spacer()
+                                Text(hoveredNetTotal.formattedCurrency)
+                                    .fontWeight(.bold)
+                            }
                         }
-                        HStack {
-                            Text("Total income")
-                                .foregroundStyle(.green)
-                            Spacer()
-                            Text(hoveredIncomeTotal.formattedCurrency)
-                                .foregroundStyle(.green)
-                        }
-                        HStack {
-                            Text("Net")
-                                .fontWeight(.bold)
-                            Spacer()
-                            Text(hoveredNetTotal.formattedCurrency)
-                                .fontWeight(.bold)
-                        }
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 8)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                        .fixedSize()
+                        .background(GeometryReader { geo in
+                            Color.clear.preference(key: SizePreferenceKey.self, value: geo.size)
+                        })
+                        .offset(
+                            x: tooltipOffset(location, tooltipSize: tooltipSize).x,
+                            y: tooltipOffset(location, tooltipSize: tooltipSize).y
+                        )
                     }
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 8)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-                    .fixedSize()
-                    .background(GeometryReader { geo in
-                        Color.clear.preference(key: SizePreferenceKey.self, value: geo.size)
-                    })
-                    .offset(
-                        x: tooltipOffset(location, tooltipSize: tooltipSize).x,
-                        y: tooltipOffset(location, tooltipSize: tooltipSize).y
-                    )
                 }
-            }
-            .onPreferenceChange(SizePreferenceKey.self) { tooltipSize = $0 }
+                .onPreferenceChange(SizePreferenceKey.self) { tooltipSize = $0 }
         }
         .padding(.horizontal)
         .padding(.bottom, 12)
@@ -439,29 +441,31 @@ struct CategoryBreakdown {
     let type: CategoryType
 }
 
-struct ScrollWheelHandler: NSViewRepresentable {
-    let onScroll: (CGFloat) -> Void
+#if os(macOS)
+    struct ScrollWheelHandler: NSViewRepresentable {
+        let onScroll: (CGFloat) -> Void
 
-    func makeNSView(context _: Context) -> NSView {
-        let view = _ScrollWheelView()
-        view.onScroll = onScroll
-        return view
+        func makeNSView(context _: Context) -> NSView {
+            let view = _ScrollWheelView()
+            view.onScroll = onScroll
+            return view
+        }
+
+        func updateNSView(_ nsView: NSView, context _: Context) {
+            (nsView as? _ScrollWheelView)?.onScroll = onScroll
+        }
     }
 
-    func updateNSView(_ nsView: NSView, context _: Context) {
-        (nsView as? _ScrollWheelView)?.onScroll = onScroll
-    }
-}
+    final class _ScrollWheelView: NSView {
+        var onScroll: ((CGFloat) -> Void)?
 
-final class _ScrollWheelView: NSView {
-    var onScroll: ((CGFloat) -> Void)?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            wantsRestingTouches = true
+        }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        wantsRestingTouches = true
+        override func scrollWheel(with event: NSEvent) {
+            onScroll?(event.scrollingDeltaY)
+        }
     }
-
-    override func scrollWheel(with event: NSEvent) {
-        onScroll?(event.scrollingDeltaY)
-    }
-}
+#endif

@@ -3,14 +3,15 @@ import SwiftData
 
 @Model
 final class Category {
-    @Attribute(.unique) var id: UUID
-    var name: String
-    var type: CategoryType
+    var id: UUID = UUID()
+    var name: String = ""
+    var type: CategoryType = CategoryType.expense
     var limit: Double?
-    var colorHex: String
-    var iconName: String
-    var isSystem: Bool
-    var sortOrder: Int
+    var colorHex: String = "#4F8EF7"
+    var iconName: String = "tag.fill"
+    var isSystem: Bool = false
+    var sortOrder: Int = 0
+    var syncStamp: Date = Date()
     @Relationship(deleteRule: .cascade, inverse: \Transaction.category) var transactions: [Transaction]?
 
     init(

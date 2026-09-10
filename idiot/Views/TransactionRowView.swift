@@ -58,7 +58,11 @@ struct TransactionRowView: View {
         .padding(.vertical, 6)
         .padding(.horizontal, isOverLimit ? 8 : 0)
         .background(isOverLimit ? Color.red.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
-        .background(Color(nsColor: NSColor.controlBackgroundColor))
         .opacity(lockPastMonths && transaction.date.isInPastMonth ? 0.5 : 1)
+        #if os(macOS)
+            .background(Color(nsColor: NSColor.controlBackgroundColor))
+        #else
+            .background(Color(uiColor: .systemBackground))
+        #endif
     }
 }

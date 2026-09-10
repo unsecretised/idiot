@@ -94,7 +94,9 @@ struct CategoryEditView: View {
                     }
                 }
             }
+            #if os(macOS)
             .frame(minWidth: 420, minHeight: 420)
+            #endif
         }
     }
 

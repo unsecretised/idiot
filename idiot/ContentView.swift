@@ -11,6 +11,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var selectedMonth = Date.now.startOfMonth
     @State private var showSettings = false
+    @State private var showAnalytics = false
 
     @State private var hiddenCategoryIDs: Set<Category.ID> = []
     @State private var minAmountText = ""
@@ -32,7 +33,11 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            MonthlyHeaderView(selectedMonth: $selectedMonth, showSettings: $showSettings)
+            MonthlyHeaderView(
+                selectedMonth: $selectedMonth,
+                showSettings: $showSettings,
+                showAnalytics: $showAnalytics
+            )
             WeeklyChartView(
                 selectedMonth: selectedMonth,
                 hiddenCategoryIDs: hiddenCategoryIDs,
@@ -55,6 +60,9 @@ struct ContentView: View {
         .padding(.top, 32)
         .sheet(isPresented: $showSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showAnalytics) {
+            AnalyticsView()
         }
     }
 }

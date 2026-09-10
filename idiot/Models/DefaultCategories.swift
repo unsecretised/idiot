@@ -4,8 +4,14 @@ import SwiftData
 enum DefaultCategories {
     private static let didSeedKey = "didSeedCategories"
 
-    static func seed(context: ModelContext) {
+    static func seedIfNeeded(context: ModelContext) {
         guard !UserDefaults.standard.bool(forKey: didSeedKey) else {
+            return
+        }
+
+        let count = (try? context.fetchCount(FetchDescriptor<Category>())) ?? 0
+        guard count == 0 else {
+            UserDefaults.standard.set(true, forKey: didSeedKey)
             return
         }
 
@@ -29,5 +35,40 @@ enum DefaultCategories {
         } catch {
             assertionFailure("Failed to seed default categories: \(error.localizedDescription)")
         }
+    }
+
+    static func reconcileDuplicates(context: ModelContext) {
+        let descriptor = FetchDescriptor<Category>()
+        guard let categories = try? context.fetch(descriptor) else { return }
+
+        var seen: [String: Category] = [:]
+        var duplicates: [(duplicate: Category, survivor: Category)] = []
+
+        for category in categories where category.isSystem {
+            let key = "\(category.type.rawValue)|\(category.name)"
+            if let existing = seen[key] {
+                let existingCount = existing.transactions?.count ?? 0
+                let newCount = category.transactions?.count ?? 0
+                if newCount > existingCount {
+                    duplicates.append((existing, category))
+                    seen[key] = category
+                } else {
+                    duplicates.append((category, existing))
+                }
+            } else {
+                seen[key] = category
+            }
+        }
+
+        guard !duplicates.isEmpty else { return }
+
+        for (duplicate, survivor) in duplicates {
+            for transaction in duplicate.transactions ?? [] {
+                transaction.category = survivor
+            }
+            context.delete(duplicate)
+        }
+
+        try? context.save()
     }
 }

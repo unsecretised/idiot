@@ -97,13 +97,15 @@ struct TransactionListView: View {
                 }
             }
             .animation(.default, value: filteredTransactions.count)
-            .onDeleteCommand {
-                deleteSelected()
-            }
-            .onKeyPress(.return) {
-                editSelectedTransaction()
-                return .handled
-            }
+            #if os(macOS)
+                .onDeleteCommand {
+                    deleteSelected()
+                }
+            #endif
+                .onKeyPress(.return) {
+                    editSelectedTransaction()
+                    return .handled
+                }
         }
         .overlay(alignment: .bottomTrailing) {
             HStack(spacing: 8) {
@@ -195,9 +197,13 @@ struct TransactionListView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Toggle("Income", isOn: $showIncome)
+                #if os(macOS)
                     .toggleStyle(.checkbox)
+                #endif
                 Toggle("Expense", isOn: $showExpense)
+                #if os(macOS)
                     .toggleStyle(.checkbox)
+                #endif
             }
 
             if !categories.isEmpty {
@@ -224,7 +230,9 @@ struct TransactionListView: View {
                                     .font(.caption)
                             }
                         }
+                        #if os(macOS)
                         .toggleStyle(.checkbox)
+                        #endif
                     }
                 }
             }

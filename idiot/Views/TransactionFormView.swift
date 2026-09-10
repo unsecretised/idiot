@@ -123,7 +123,9 @@ struct TransactionFormView: View {
                     }
                 }
             }
+            #if os(macOS)
             .frame(minWidth: 460, minHeight: 360)
+            #endif
             .onAppear {
                 selectedCategory = selectedCategory ?? categories.first
             }
