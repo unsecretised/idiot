@@ -15,6 +15,11 @@ enum DefaultCategories {
             return
         }
 
+        seed(context: context)
+        UserDefaults.standard.set(true, forKey: didSeedKey)
+    }
+
+    static func seed(context: ModelContext) {
         let categories = [
             Category(name: "Business", type: .expense, colorHex: "#4F8EF7", iconName: "briefcase.fill", isSystem: true, sortOrder: 1),
             Category(name: "Utilities", type: .expense, colorHex: "#FF9500", iconName: "bolt.fill", isSystem: true, sortOrder: 2),
@@ -31,7 +36,6 @@ enum DefaultCategories {
 
         do {
             try context.save()
-            UserDefaults.standard.set(true, forKey: didSeedKey)
         } catch {
             assertionFailure("Failed to seed default categories: \(error.localizedDescription)")
         }

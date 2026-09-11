@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var showSystemCategoryAlert = false
     @State private var isPushing = false
     @State private var pushError: String?
+    @State private var showEraseConfirmation = false
     private let syncMonitor = CloudSyncMonitor.shared
 
     private var expenseCategories: [Category] {
@@ -88,6 +89,18 @@ struct SettingsView: View {
                     Text("Changes sync automatically. Use Force Push if a device seems out of date — it re-uploads all local data to your private iCloud database.")
                 }
 
+                Section {
+                    Button(role: .destructive) {
+                        showEraseConfirmation = true
+                    } label: {
+                        Label("Erase All Data", systemImage: "trash")
+                    }
+                } header: {
+                    Text("Danger Zone")
+                } footer: {
+                    Text("Deletes every transaction, category, and recurring rule — locally and from iCloud. This cannot be undone.")
+                }
+
                 categorySection("Expense", categories: expenseCategories)
                 categorySection("Income", categories: incomeCategories)
             }
@@ -135,6 +148,14 @@ struct SettingsView: View {
             } message: {
                 Text("This will remove the category from your tracker.")
             }
+            .alert("Erase All Data?", isPresented: $showEraseConfirmation) {
+                Button("Erase Everything", role: .destructive) {
+                    eraseAllData()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("All transactions, categories, and recurring rules will be removed from this device and iCloud. This cannot be undone.")
+            }
             .alert("Force Push Failed", isPresented: pushErrorBinding) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -143,6 +164,25 @@ struct SettingsView: View {
             #if os(macOS)
             .frame(minWidth: 520, minHeight: 520)
             #endif
+        }
+    }
+
+    private func eraseAllData() {
+        do {
+            for transaction in try modelContext.fetch(FetchDescriptor<Transaction>()) {
+                modelContext.delete(transaction)
+            }
+            for rule in try modelContext.fetch(FetchDescriptor<RecurringRule>()) {
+                modelContext.delete(rule)
+            }
+            for category in try modelContext.fetch(FetchDescriptor<Category>()) {
+                modelContext.delete(category)
+            }
+            try modelContext.save()
+            DefaultCategories.seed(context: modelContext)
+            WidgetSnapshotWriter.write(context: modelContext)
+        } catch {
+            assertionFailure("Failed to erase data: \(error.localizedDescription)")
         }
     }
 
