@@ -4,6 +4,7 @@ struct TransactionRowView: View {
     let transaction: Transaction
     let isOverLimit: Bool
     let lockPastMonths: Bool
+    var isSelected: Bool = false
 
     private var category: Category? {
         transaction.category
@@ -15,57 +16,98 @@ struct TransactionRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 10) {
-                Text(isIncome ? "+" : "−")
-                    .font(.headline.monospaced())
-                    .foregroundStyle(isIncome ? .green : .red)
+            rowContent
+            if isOverLimit, let limit = category?.limit {
+                overLimitPill(limit)
+            }
+        }
+        .padding(.vertical, 6)
+        .opacity(lockPastMonths && transaction.date.isInPastMonth ? 0.5 : 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityText)
+        .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+        .animation(.snappy(duration: 0.2), value: isSelected)
+    }
 
-                Circle()
-                    .fill(Color(hex: category?.colorHex ?? "#8E8E93"))
-                    .frame(width: 10, height: 10)
+    func rowBackground(isSelected: Bool) -> some View {
+        let fill: Color = {
+            if isSelected {
+                return .accentColor.opacity(0.14)
+            }
+            #if os(macOS)
+                return Color(nsColor: .controlBackgroundColor)
+            #else
+                return .clear
+            #endif
+        }()
+        return RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(fill)
+            .padding(.horizontal, 4)
+    }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(transaction.title)
-                        .fontWeight(.medium)
+    private var rowContent: some View {
+        HStack(spacing: 12) {
+            iconBadge
 
-                    if let category {
-                        Label(category.name, systemImage: category.iconName)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(transaction.title)
+                    .font(.body.weight(.medium))
+                    .lineLimit(2)
 
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(transaction.amount.formattedCurrency)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(isIncome ? .green : .red)
-
-                    Text(transaction.date.formatted(style: .medium))
+                if let category {
+                    Text(category.name)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
 
-            if isOverLimit, let limit = category?.limit {
-                Text("Category over limit: \(limit.formattedCurrency)")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.red)
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(amountText)
+                    .font(.body.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(isIncome ? Color.green : .primary)
+                    .contentTransition(.numericText())
+
+                Text(transaction.date.formatted(style: .medium))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 6)
-        .background(isOverLimit ? Color.red.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
-        .opacity(lockPastMonths && transaction.date.isInPastMonth ? 0.5 : 1)
-        #if os(macOS)
-            .listRowBackground(Color(nsColor: NSColor.controlBackgroundColor))
-        #else
-            .listRowBackground(Color(uiColor: .systemBackground))
-            .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
-        #endif
-        #if os(macOS)
-        .padding(.horizontal, 8)
-        #endif
+    }
+
+    private func overLimitPill(_ limit: Double) -> some View {
+        Label("Over \(limit.formattedCurrency)", systemImage: "exclamationmark.triangle.fill")
+            .lineLimit(1)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.red)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(.red.opacity(0.12), in: Capsule())
+    }
+
+    private var iconBadge: some View {
+        Image(systemName: category?.iconName ?? "questionmark.circle.fill")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color(hex: category?.colorHex ?? "#8E8E93"))
+            .frame(width: 30, height: 30)
+            .background(Color(hex: category?.colorHex ?? "#8E8E93").opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+            .accessibilityHidden(true)
+    }
+
+    private var amountText: String {
+        "\(isIncome ? "+" : "−")\(transaction.amount.formattedCurrency)"
+    }
+
+    private var accessibilityText: String {
+        var parts = ["\(isIncome ? "Income" : "Expense"): \(transaction.title)", amountText]
+        if let category {
+            parts.append("in \(category.name)")
+        }
+        parts.append(transaction.date.formatted(date: .long, time: .omitted))
+        if isOverLimit {
+            parts.append("category over limit")
+        }
+        return parts.joined(separator: ", ")
     }
 }

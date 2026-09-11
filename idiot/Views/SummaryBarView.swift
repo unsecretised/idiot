@@ -30,9 +30,10 @@ struct SummaryBarView: View {
 
     private var broughtForwardBalance: Double {
         let start = selectedMonth.startOfMonth
-        return allTransactions
+        let txTotal = allTransactions
             .filter { $0.date < start }
             .reduce(0) { $0 + ($1.category?.type == .income ? $1.amount : -$1.amount) }
+        return txTotal + OpeningBalance.amount
     }
 
     private var totalBalance: Double {

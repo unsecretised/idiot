@@ -3,47 +3,70 @@ import SwiftUI
 struct InsightsSection: View {
     let insights: [AnalyticsEngine.Insight]
 
+    @State private var isExpanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         if !insights.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Insights")
-                    .font(.headline)
-
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 250, maximum: 420), alignment: .topLeading)],
-                    alignment: .leading,
-                    spacing: 8
-                ) {
-                    ForEach(insights) { insight in
-                        card(insight)
+                Button {
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
+                        isExpanded.toggle()
                     }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("Insights")
+                            .font(.headline)
+                        Text("\(insights.count)")
+                            .font(.caption.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Insights, \(insights.count) available")
+                .accessibilityHint(isExpanded ? "Collapses insights" : "Expands insights")
+
+                if isExpanded {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(insights) { insight in
+                            row(insight)
+                        }
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
         }
     }
 
-    private func card(_ insight: AnalyticsEngine.Insight) -> some View {
-        let tint = Color(hex: insight.tintHex)
-        return HStack(alignment: .top, spacing: 10) {
+    private func row(_ insight: AnalyticsEngine.Insight) -> some View {
+        HStack(alignment: .center, spacing: 12) {
             Image(systemName: insight.icon)
                 .font(.body)
-                .foregroundStyle(tint)
-                .frame(width: 24)
+                .foregroundStyle(Color(hex: insight.tintHex))
+                .frame(width: 24, alignment: .center)
+                .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(insight.title)
-                    .font(.callout.weight(.semibold))
-                    .lineLimit(1)
-                Text(insight.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(insight.title)
+                .font(.callout.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 12)
+
+            Text(insight.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(4)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
     }
 }

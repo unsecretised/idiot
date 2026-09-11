@@ -2,24 +2,50 @@ import SwiftData
 import SwiftUI
 
 struct RecurringListView: View {
-    let type: CategoryType
+    var type: CategoryType? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \RecurringRule.title) private var rules: [RecurringRule]
     @State private var showAdd = false
+    @State private var showAddModeChoice = false
     @State private var editingRule: RecurringRule?
     @State private var deletingRule: RecurringRule?
 
+    private var showIncome: Bool {
+        type != .expense
+    }
+
     private var displayRules: [RecurringRule] {
-        rules
+        guard let type else { return rules.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending } }
+        return rules
             .filter { $0.category?.type == type }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
-    private var monthlyEstimate: Double {
+    private var monthlyIncomeEstimate: Double {
         displayRules
             .filter(\.isActive)
+            .filter { $0.category?.type == .income }
             .reduce(0) { $0 + $1.amount * $1.frequency.perMonthEstimateMultiplier }
+    }
+
+    private var monthlyExpenseEstimate: Double {
+        displayRules
+            .filter(\.isActive)
+            .filter { $0.category?.type == .expense }
+            .reduce(0) { $0 + $1.amount * $1.frequency.perMonthEstimateMultiplier }
+    }
+
+    private var activeCount: Int {
+        displayRules.filter(\.isActive).count
+    }
+
+    private var navigationTitle: String {
+        switch type {
+        case .income: "Auto Salary"
+        case .expense: "Subscriptions"
+        case nil: "Recurring"
+        }
     }
 
     var body: some View {
@@ -61,7 +87,7 @@ struct RecurringListView: View {
                     Text(type == .income ? "Auto Salary" : "Subscriptions")
                     Spacer()
                     Button {
-                        showAdd = true
+                        handleAddTap()
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -69,17 +95,21 @@ struct RecurringListView: View {
                     .accessibilityLabel(type == .income ? "Add Salary Rule" : "Add Subscription")
                 }
             } footer: {
-                Text(
-                    "\(monthlyEstimate.formattedCurrency) per month estimated · \(displayRules.filter(\.isActive).count) active"
-                )
+                if type == nil {
+                    let incomeLabel = monthlyIncomeEstimate.formattedCurrency
+                    let expenseLabel = monthlyExpenseEstimate.formattedCurrency
+                    Text("\(incomeLabel) in · \(expenseLabel) out per month · \(activeCount) active")
+                } else {
+                    Text("\(monthlyExpenseEstimate.formattedCurrency) per month estimated · \(activeCount) active")
+                }
             }
         }
-        .navigationTitle(type == .income ? "Auto Salary" : "Subscriptions")
+        .navigationTitle(navigationTitle)
         #if os(iOS)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showAdd = true
+                        handleAddTap()
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -87,8 +117,17 @@ struct RecurringListView: View {
                 }
             }
         #endif
+            .confirmationDialog("Add Recurring Rule", isPresented: $showAddModeChoice, titleVisibility: .visible) {
+                Button("Add Subscription") {
+                    addRule(mode: .subscription)
+                }
+                Button("Add Salary Rule") {
+                    addRule(mode: .salary)
+                }
+                Button("Cancel", role: .cancel) {}
+            }
             .sheet(isPresented: $showAdd) {
-                RecurringFormView(mode: type == .income ? .salary : .subscription)
+                RecurringFormView(mode: type == .income ? .salary : addMode)
             }
             .sheet(item: $editingRule) { rule in
                 RecurringFormView(mode: rule.category?.type == .income ? .salary : .subscription, rule: rule)
@@ -152,10 +191,10 @@ struct RecurringListView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text(rule.amount.formattedCurrency)
+                Text(amountText(rule))
                     .fontWeight(.semibold)
                     .monospacedDigit()
-                    .foregroundStyle(type == .income ? .green : .primary)
+                    .foregroundStyle(rule.category?.type == .income ? .green : .primary)
                 Text(shortFrequency(rule.frequency))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -163,6 +202,21 @@ struct RecurringListView: View {
         }
         .padding(.vertical, 2)
     }
+
+    private func amountText(_ rule: RecurringRule) -> String {
+        let base = rule.amount.formattedCurrency
+        return rule.category?.type == .income ? "+\(base)" : "−\(base)"
+    }
+
+    private func addRule(mode: RecurringFormView.Mode) {
+        showAddModeChoice = false
+        withAnimation {
+            showAdd = true
+        }
+        addMode = mode
+    }
+
+    @State private var addMode: RecurringFormView.Mode = .subscription
 
     private func rowSubtitle(_ rule: RecurringRule, next: Date?) -> String {
         var parts: [String] = []
@@ -201,20 +255,25 @@ struct RecurringListView: View {
         deletingRule = nil
     }
 
+    private func handleAddTap() {
+        if type != nil {
+            addMode = type == .income ? .salary : .subscription
+            showAdd = true
+        } else {
+            showAddModeChoice = true
+        }
+    }
+
     private var emptyState: some View {
         VStack(spacing: 10) {
             ContentUnavailableView(
                 type == .income ? "No income rules yet" : "No subscriptions yet",
-                systemImage: type == .income ? "dollarsign.circle" : "repeat",
-                description: Text(
-                    type == .income
-                        ? "Track recurring income so it's logged automatically."
-                        : "Track recurring charges so they're logged automatically."
-                )
+                systemImage: "repeat",
+                description: Text("Track recurring charges and income so they're logged automatically.")
             )
 
-            Button(type == .income ? "Add Salary Rule" : "Add Subscription") {
-                showAdd = true
+            Button("Add Rule") {
+                handleAddTap()
             }
             .buttonStyle(.borderedProminent)
         }

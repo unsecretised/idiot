@@ -13,6 +13,35 @@ extension Color {
         self.init(red: red, green: green, blue: blue)
     }
 
+    init(hex: UInt) {
+        self.init(
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255
+        )
+    }
+
+    var hex: String {
+        #if os(macOS)
+            let resolved = NSColor(self).usingColorSpace(.sRGB) ?? NSColor(.white)
+            let red = Int((resolved.redComponent * 255).rounded())
+            let green = Int((resolved.greenComponent * 255).rounded())
+            let blue = Int((resolved.blueComponent * 255).rounded())
+        #else
+            let resolved = UIColor(self)
+            var redComponent: CGFloat = 0
+            var greenComponent: CGFloat = 0
+            var blueComponent: CGFloat = 0
+            var alpha: CGFloat = 0
+            resolved.getRed(&redComponent, green: &greenComponent, blue: &blueComponent, alpha: &alpha)
+            let red = Int((redComponent * 255).rounded())
+            let green = Int((greenComponent * 255).rounded())
+            let blue = Int((blueComponent * 255).rounded())
+        #endif
+
+        return String(format: "#%02X%02X%02X", red, green, blue)
+    }
+
     static let categoryBlue = Color(hex: "#4F8EF7")
     static let categoryGreen = Color(hex: "#34C759")
     static let categoryOrange = Color(hex: "#FF9500")

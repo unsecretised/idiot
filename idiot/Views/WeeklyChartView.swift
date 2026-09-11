@@ -12,10 +12,8 @@ struct WeeklyChartView: View {
 
     @Query(sort: \Transaction.date) private var allTransactions: [Transaction]
     @Environment(\.modelContext) private var modelContext
-    @State private var hoveredWeekLabel: String?
-    @State private var hoveredLocation: CGPoint?
+    @State private var selectedWeekLabel: String?
     @State private var chartSize: CGSize = .zero
-    @State private var tooltipSize: CGSize = .zero
     @State private var yZoom: CGFloat = 1.0
     @State private var yPan: Double = 0.0
     @State private var lastZoom: CGFloat = 1.0
@@ -107,6 +105,46 @@ struct WeeklyChartView: View {
         return maxVal * 1.15
     }
 
+    private var titleBlock: some View {
+        Text("Weekly Overview")
+            .font(.title2.weight(.semibold))
+    }
+
+    private func summaryBlock(alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 2) {
+            Text(monthlyNet.formattedCurrency)
+                .font(.title2.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(monthlyNet >= 0 ? Color.green : .red)
+                .contentTransition(.numericText())
+
+            HStack(spacing: 12) {
+                HStack(spacing: 4) {
+                    Text("+")
+                        .foregroundStyle(.green)
+                    Text(monthlyIncome.formattedCurrency)
+                        .foregroundStyle(.green)
+                }
+                HStack(spacing: 4) {
+                    Text("−")
+                        .foregroundStyle(.red)
+                    Text(monthlyExpenses.formattedCurrency)
+                        .foregroundStyle(.red)
+                }
+            }
+            .font(.callout.monospacedDigit())
+
+            Text("Balance: \(totalBalance.formattedCurrency)")
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(balanceColor)
+                .accessibilityHint("Includes \(broughtForwardBalance.formattedCurrency) brought forward")
+        }
+        .animation(.snappy(duration: 0.25), value: monthlyNet)
+        .animation(.snappy(duration: 0.25), value: totalBalance)
+    }
+
+    // MARK: - Accessibility labels
+
     private var yAxisDomain: ClosedRange<Double> {
         let range = maxAbsoluteAmount / Double(yZoom)
         return (-range + yPan) ... (range + yPan)
@@ -126,9 +164,10 @@ struct WeeklyChartView: View {
 
     private var broughtForwardBalance: Double {
         let start = selectedMonth.startOfMonth
-        return allTransactions
+        let txTotal = allTransactions
             .filter { $0.date < start }
             .reduce(0) { $0 + ($1.category?.type == .income ? $1.amount : -$1.amount) }
+        return txTotal + OpeningBalance.amount
     }
 
     private var totalBalance: Double {
@@ -165,25 +204,25 @@ struct WeeklyChartView: View {
         return .primary
     }
 
-    private var hoveredExpensesTotal: Double {
-        hoveredWeekDetails.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+    private var selectedExpensesTotal: Double {
+        selectedWeekDetails.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
     }
 
-    private var hoveredIncomeTotal: Double {
-        hoveredWeekDetails.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
+    private var selectedIncomeTotal: Double {
+        selectedWeekDetails.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
     }
 
-    private var hoveredNetTotal: Double {
-        hoveredIncomeTotal - hoveredExpensesTotal
+    private var selectedNetTotal: Double {
+        selectedIncomeTotal - selectedExpensesTotal
     }
 
-    private var hoveredWeekNumber: Int? {
-        guard let hoveredWeekLabel else { return nil }
-        return weeklyData.first(where: { $0.weekLabel == hoveredWeekLabel })?.week
+    private var selectedWeekNumber: Int? {
+        guard let selectedWeekLabel else { return nil }
+        return weeklyData.first(where: { $0.weekLabel == selectedWeekLabel })?.week
     }
 
-    private var hoveredWeekDetails: [CategoryBreakdown] {
-        guard let week = hoveredWeekNumber else { return [] }
+    private var selectedWeekDetails: [CategoryBreakdown] {
+        guard let week = selectedWeekNumber else { return [] }
         let weekTxs = transactions.filter { $0.date.weekOfMonth == week }
         let grouped = Dictionary(grouping: weekTxs) { $0.category?.name ?? "Uncategorized" }
 
@@ -209,43 +248,15 @@ struct WeeklyChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center) {
-                Text("Weekly Overview")
-                    .font(.title2.weight(.semibold))
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(monthlyNet.formattedCurrency)
-                        .font(.title2.weight(.bold))
-                    HStack(spacing: 12) {
-                        HStack(spacing: 4) {
-                            Text("+")
-                                .foregroundStyle(.green)
-                            Text(monthlyIncome.formattedCurrency)
-                                .foregroundStyle(.green)
-                        }
-                        HStack(spacing: 4) {
-                            Text("−")
-                                .foregroundStyle(.red)
-                            Text(monthlyExpenses.formattedCurrency)
-                                .foregroundStyle(.red)
-                        }
-                    }
-                    .font(.callout)
-
-                    HStack(spacing: 4) {
-                        Text("Brought forward:")
-                            .foregroundStyle(.secondary)
-                        Text(broughtForwardBalance.formattedCurrency)
-                    }
-                    .font(.caption)
-
-                    HStack(spacing: 4) {
-                        Text("Balance:")
-                            .foregroundStyle(.secondary)
-                        Text(totalBalance.formattedCurrency)
-                            .foregroundStyle(balanceColor)
-                    }
-                    .font(.caption.weight(.semibold))
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top) {
+                    titleBlock
+                    Spacer(minLength: 16)
+                    summaryBlock(alignment: .trailing)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    titleBlock
+                    summaryBlock(alignment: .leading)
                 }
             }
 
@@ -289,31 +300,21 @@ struct WeeklyChartView: View {
                         .contentShape(Rectangle())
                         .onAppear { chartSize = geometry.size }
                         .onChange(of: geometry.size) { chartSize = $1 }
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case let .active(location):
-                                guard let plotRect = proxy.plotFrame else {
-                                    hoveredWeekLabel = nil
-                                    hoveredLocation = nil
-                                    return
-                                }
-                                let plotFrame = geometry[plotRect]
-                                let x = location.x - plotFrame.origin.x
-                                let y = location.y - plotFrame.origin.y
-                                if x >= 0, x <= plotFrame.width, y >= 0, y <= plotFrame.height {
-                                    if let weekLabel: String = proxy.value(atX: x) {
-                                        hoveredWeekLabel = weekLabel
-                                    } else {
-                                        hoveredWeekLabel = nil
-                                    }
-                                    hoveredLocation = location
-                                } else {
-                                    hoveredWeekLabel = nil
-                                    hoveredLocation = nil
-                                }
-                            case .ended:
-                                hoveredWeekLabel = nil
-                                hoveredLocation = nil
+                        .onTapGesture(coordinateSpace: .local) { location in
+                            guard let plotRect = proxy.plotFrame else { return }
+                            let plotFrame = geometry[plotRect]
+                            let point = CGPoint(
+                                x: location.x - plotFrame.origin.x,
+                                y: location.y - plotFrame.origin.y
+                            )
+                            guard point.x >= 0, point.x <= plotFrame.width, point.y >= 0, point.y <= plotFrame.height else {
+                                selectedWeekLabel = nil
+                                return
+                            }
+                            if let label: String = proxy.value(atX: point.x) {
+                                selectedWeekLabel = selectedWeekLabel == label ? nil : label
+                            } else {
+                                selectedWeekLabel = nil
                             }
                         }
                 }
@@ -326,7 +327,6 @@ struct WeeklyChartView: View {
                     yZoom = max(1.0, yZoom * factor)
                     lastZoom = yZoom
                 })
-            #endif
                 .simultaneousGesture(
                     MagnificationGesture()
                         .onChanged { value in
@@ -366,83 +366,102 @@ struct WeeklyChartView: View {
                         .padding(6)
                     }
                 }
-                .overlay(alignment: .topLeading) {
-                    if let location = hoveredLocation, !hoveredWeekDetails.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(hoveredWeekLabel ?? "")
-                                .font(.caption.weight(.semibold))
-                            ForEach(hoveredWeekDetails, id: \.categoryName) { detail in
-                                HStack(spacing: 6) {
-                                    Circle()
-                                        .fill(Color(hex: detail.colorHex))
-                                        .frame(width: 8, height: 8)
-                                    Text(detail.categoryName)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text(detail.amount.formattedCurrency)
-                                        .fontWeight(.semibold)
-                                }
-                                .font(.caption)
-                            }
+            #endif
 
-                            Divider()
-                            HStack {
-                                Text("Total expenses")
-                                    .foregroundStyle(.red)
-                                Spacer()
-                                Text(hoveredExpensesTotal.formattedCurrency)
-                                    .foregroundStyle(.red)
-                            }
-                            HStack {
-                                Text("Total income")
-                                    .foregroundStyle(.green)
-                                Spacer()
-                                Text(hoveredIncomeTotal.formattedCurrency)
-                                    .foregroundStyle(.green)
-                            }
-                            HStack {
-                                Text("Net")
-                                    .fontWeight(.bold)
-                                Spacer()
-                                Text(hoveredNetTotal.formattedCurrency)
-                                    .fontWeight(.bold)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 8)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-                        .fixedSize()
-                        .background(GeometryReader { geo in
-                            Color.clear.preference(key: SizePreferenceKey.self, value: geo.size)
-                        })
-                        .offset(
-                            x: tooltipOffset(location, tooltipSize: tooltipSize).x,
-                            y: tooltipOffset(location, tooltipSize: tooltipSize).y
-                        )
-                    }
-                }
-                .onPreferenceChange(SizePreferenceKey.self) { tooltipSize = $0 }
+            if selectedWeekNumber != nil, !selectedWeekDetails.isEmpty,
+               let label = selectedWeekLabel
+            {
+                weekDetailCard(label)
+            }
         }
-        .padding(.horizontal)
-        .padding(.bottom, 12)
-        .onAppear {
-            WidgetSnapshotWriter.write(context: modelContext)
-        }
-        .onChange(of: allTransactions) {
-            WidgetSnapshotWriter.write(context: modelContext)
-        }
+        .animation(.snappy(duration: 0.25), value: selectedWeekLabel)
+        .padding(16)
+        #if os(macOS)
+            .background(
+                Color(nsColor: .controlBackgroundColor),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+        #else
+            .background(
+                Color(uiColor: .secondarySystemBackground),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+        #endif
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+            .onAppear {
+                WidgetSnapshotWriter.write(context: modelContext)
+            }
+            .onChange(of: allTransactions) {
+                WidgetSnapshotWriter.write(context: modelContext)
+            }
     }
 
-    private func tooltipOffset(_ location: CGPoint, tooltipSize: CGSize) -> CGPoint {
-        let gap: CGFloat = 12
+    private func weekDetailCard(_ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(label)
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Button {
+                    selectedWeekLabel = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                        .frame(minWidth: 20, minHeight: 20)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close detailed view")
+            }
 
-        let fitsRight = location.x + gap + tooltipSize.width <= chartSize.width
-        let offsetX = fitsRight ? location.x + gap : max(gap, location.x - tooltipSize.width - gap)
+            ForEach(selectedWeekDetails, id: \.categoryName) { detail in
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: detail.colorHex))
+                        .frame(width: 8, height: 8)
+                    Text(detail.categoryName)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(detail.amount.formattedCurrency)
+                        .fontWeight(.semibold)
+                }
+                .font(.caption)
+            }
 
-        let fitsAbove = location.y - gap >= tooltipSize.height
-        let offsetY = fitsAbove ? location.y - gap - tooltipSize.height : min(chartSize.height - tooltipSize.height - gap, location.y + gap)
-
-        return CGPoint(x: offsetX, y: max(gap, offsetY))
+            Divider()
+            if selectedExpensesTotal > 0 {
+                HStack {
+                    Text("Expenses").font(.caption)
+                        .foregroundStyle(.red)
+                    Spacer()
+                    Text(selectedExpensesTotal.formattedCurrency)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+            if selectedIncomeTotal > 0 {
+                HStack {
+                    Text("Income").font(.caption)
+                        .foregroundStyle(.green)
+                    Spacer()
+                    Text(selectedIncomeTotal.formattedCurrency)
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+            }
+            HStack {
+                Text("Net").font(.caption.weight(.bold))
+                Spacer()
+                Text(selectedNetTotal.formattedCurrency)
+                    .font(.caption.weight(.bold))
+            }
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func resetYZoom() {

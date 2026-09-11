@@ -11,23 +11,14 @@ import SwiftUI
 #if os(iOS)
     struct PrivacyShield: View {
         var body: some View {
-            ZStack {
-                Rectangle()
-                    .fill(.background)
-                LinearGradient(
-                    colors: [.green.opacity(0.08), .blue.opacity(0.10)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                VStack(spacing: 12) {
+            Rectangle()
+                .fill(Color.black)
+                .ignoresSafeArea()
+                .overlay {
                     Image(systemName: "lock.fill")
                         .font(.system(size: 36, weight: .semibold))
                         .foregroundStyle(.secondary)
-                    Text("Finance data hidden")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
                 }
-            }
         }
     }
 #endif
@@ -81,53 +72,21 @@ struct ContentView: View {
         return Double(trimmed)
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            MonthlyHeaderView(
-                selectedMonth: $selectedMonth,
-                showSettings: $showSettings,
-                showAnalytics: $showAnalytics
-            )
-            WeeklyChartView(
-                selectedMonth: selectedMonth,
-                hiddenCategoryIDs: hiddenCategoryIDs,
-                minAmount: minAmount,
-                maxAmount: maxAmount,
-                showIncome: showIncome,
-                showExpense: showExpense
-            )
-            .padding(.top, 8)
+    #if os(iOS)
+        private var walkableMonths: [Date] {
+            let calendar = Calendar.current
+            let current = Date.now.startOfMonth
+            let past = (0 ..< 36).compactMap { calendar.date(byAdding: .month, value: -$0, to: current) }
+            let future = (1 ... 3).compactMap { calendar.date(byAdding: .month, value: $0, to: current) }
+            return past.reversed() + future
+        }
+    #endif
 
-            TransactionListView(
-                selectedMonth: selectedMonth,
-                showAddTransaction: $showAddTransaction,
-                hiddenCategoryIDs: hiddenCategoryIDsBinding,
-                minAmountText: $minAmountText,
-                maxAmountText: $maxAmountText,
-                showIncome: $showIncome,
-                showExpense: $showExpense
-            )
-        }
-        .onAppear {
-            loadPersistedFilters()
-        }
-        #if os(macOS)
-        .padding(.top, 32)
-        #endif
-        .textSelection(.enabled)
-        #if os(iOS)
-            .overlay {
-                if !isUnlocked {
-                    PrivacyShield()
-                        .transition(.opacity)
-                }
+    var body: some View {
+        platformHome
+            .onAppear {
+                loadPersistedFilters()
             }
-            .onChange(of: scenePhase) { _, newPhase in
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    isUnlocked = newPhase == .active
-                }
-            }
-        #endif
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
@@ -150,11 +109,240 @@ struct ContentView: View {
             }
     }
 
+    private var platformHome: some View {
+        #if os(macOS)
+            macHome
+        #else
+            iosHome
+        #endif
+    }
+
+    #if os(macOS)
+        var macHome: some View {
+            VStack(spacing: 0) {
+                MonthlyHeaderView(
+                    selectedMonth: $selectedMonth,
+                    showSettings: $showSettings,
+                    showAnalytics: $showAnalytics
+                )
+                WeeklyChartView(
+                    selectedMonth: selectedMonth,
+                    hiddenCategoryIDs: hiddenCategoryIDs,
+                    minAmount: minAmount,
+                    maxAmount: maxAmount,
+                    showIncome: showIncome,
+                    showExpense: showExpense
+                )
+                .padding(.top, 8)
+
+                TransactionListView(
+                    selectedMonth: selectedMonth,
+                    showAddTransaction: $showAddTransaction,
+                    hiddenCategoryIDs: hiddenCategoryIDsBinding,
+                    minAmountText: $minAmountText,
+                    maxAmountText: $maxAmountText,
+                    showIncome: $showIncome,
+                    showExpense: $showExpense
+                )
+            }
+            .padding(.top, 32)
+            .textSelection(.enabled)
+        }
+    #endif
+
     #if os(macOS)
         @Environment(\.openWindow) private var openWindow
 
         private func openAnalyticsWindow() {
             openWindow(id: "analytics")
+        }
+    #endif
+
+    #if os(iOS)
+        var iosHome: some View {
+            NavigationStack {
+                TabView(selection: $selectedMonth) {
+                    ForEach(walkableMonths, id: \.self) { month in
+                        MonthPageView(
+                            month: month,
+                            showAddTransaction: $showAddTransaction,
+                            hiddenCategoryIDs: hiddenCategoryIDsBinding,
+                            minAmountText: $minAmountText,
+                            maxAmountText: $maxAmountText,
+                            showIncome: $showIncome,
+                            showExpense: $showExpense
+                        )
+                        .tag(month)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .sheet(isPresented: $showHelpSheet) {
+                    NavigationStack {
+                        HelpView()
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button("Done") {
+                                        showHelpSheet = false
+                                    }
+                                }
+                            }
+                            .navigationBarTitleDisplayMode(.inline)
+                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        monthPickerButton
+                    }
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button {
+                            showAnalytics = true
+                        } label: {
+                            Image(systemName: "chart.bar.xaxis")
+                        }
+                        .accessibilityLabel("Analytics")
+
+                        Menu {
+                            Button {
+                                showHelpFromToolbar()
+                            } label: {
+                                Label("Help", systemImage: "questionmark.circle")
+                            }
+
+                            Button {
+                                showSettings = true
+                            } label: {
+                                Label("Settings", systemImage: "gearshape")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                        .accessibilityLabel("More options")
+                    }
+                }
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .ignoresSafeArea(.keyboard)
+            .privacySensitive()
+            .overlay {
+                if !isUnlocked {
+                    PrivacyShield()
+                        .transition(.opacity)
+                }
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                updateLock(for: newPhase)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                updateLock(for: .inactive)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                updateLock(for: .active)
+            }
+        }
+
+        private var monthPickerButton: some View {
+            Menu {
+                Section {
+                    if !isCurrentMonth {
+                        Button {
+                            selectedMonth = Date.now.startOfMonth
+                        } label: {
+                            Label("Jump to Today", systemImage: "calendar")
+                        }
+                    }
+                }
+
+                Section("Past months") {
+                    ForEach(walkableMonths, id: \.self) { month in
+                        Button {
+                            withAnimation(.snappy(duration: 0.25)) {
+                                selectedMonth = month
+                            }
+                        } label: {
+                            if month == selectedMonth {
+                                Label(month.formatted(.dateTime.month(.wide).year()), systemImage: "checkmark")
+                            } else {
+                                Text(month.formatted(.dateTime.month(.wide).year()))
+                            }
+                        }
+                        .disabled(month == selectedMonth)
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(selectedMonth.formatted(.dateTime.month(.wide).year()))
+                        .font(.headline.monospacedDigit())
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityLabel("Selected month")
+            .accessibilityHint("Opens a list of months to choose from")
+        }
+
+        private var isCurrentMonth: Bool {
+            Calendar.current.isDate(selectedMonth, equalTo: Date.now.startOfMonth, toGranularity: .month)
+        }
+
+        private func showHelpFromToolbar() {
+            showHelpSheet = true
+        }
+
+        @State private var showHelpSheet = false
+
+        struct MonthPageView: View {
+            let month: Date
+            @Binding var showAddTransaction: Bool
+            @Binding var hiddenCategoryIDs: Set<Category.ID>
+            @Binding var minAmountText: String
+            @Binding var maxAmountText: String
+            @Binding var showIncome: Bool
+            @Binding var showExpense: Bool
+
+            var body: some View {
+                VStack(spacing: 0) {
+                    WeeklyChartView(
+                        selectedMonth: month,
+                        hiddenCategoryIDs: hiddenCategoryIDs,
+                        minAmount: minAmount,
+                        maxAmount: maxAmount,
+                        showIncome: showIncome,
+                        showExpense: showExpense
+                    )
+                    .padding(.top, 8)
+
+                    TransactionListView(
+                        selectedMonth: month,
+                        showAddTransaction: $showAddTransaction,
+                        hiddenCategoryIDs: $hiddenCategoryIDs,
+                        minAmountText: $minAmountText,
+                        maxAmountText: $maxAmountText,
+                        showIncome: $showIncome,
+                        showExpense: $showExpense
+                    )
+                }
+            }
+
+            private var minAmount: Double? {
+                let trimmed = minAmountText.trimmingCharacters(in: .whitespaces)
+                guard !trimmed.isEmpty else { return nil }
+                return Double(trimmed)
+            }
+
+            private var maxAmount: Double? {
+                let trimmed = maxAmountText.trimmingCharacters(in: .whitespaces)
+                guard !trimmed.isEmpty else { return nil }
+                return Double(trimmed)
+            }
+        }
+    #endif
+
+    #if os(iOS)
+        private func updateLock(for phase: ScenePhase) {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isUnlocked = phase == .active
+            }
         }
     #endif
 }

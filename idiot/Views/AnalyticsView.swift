@@ -75,13 +75,11 @@ struct AnalyticsView: View {
     @State private var sortAscending = false
     @State private var activeTab: AnalyticsTab = .transactions
     @State private var showFilters = false
-    @State private var hoveredBucket: Date?
-    @State private var hoveredLocation: CGPoint?
+    @State private var selectedBucket: Date?
     @State private var chartSize: CGSize = .zero
-    @State private var tooltipSize: CGSize = .zero
 
     private var defaultFromDate: Date {
-        (Calendar.current.date(byAdding: .month, value: -6, to: .now) ?? .now).startOfMonth
+        (Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now).startOfMonth
     }
 
     private var fromDate: Date {
@@ -251,11 +249,6 @@ struct AnalyticsView: View {
         return (current - previous) / abs(previous) * 100
     }
 
-    private var savingsRate: Double? {
-        guard incomeTotal > 0 else { return nil }
-        return netTotal / incomeTotal * 100
-    }
-
     private var sortedTransactions: [Transaction] {
         filteredTransactions.sorted { lhs, rhs in
             if lhs.amount != rhs.amount {
@@ -365,21 +358,21 @@ struct AnalyticsView: View {
         }
     }
 
-    private var hoveredExpenseTotal: Double {
-        hoveredDetails.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+    private var selectedExpenseTotal: Double {
+        selectedDetails.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
     }
 
-    private var hoveredIncomeTotal: Double {
-        hoveredDetails.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
+    private var selectedIncomeTotal: Double {
+        selectedDetails.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
     }
 
-    private var hoveredNetTotal: Double {
-        hoveredIncomeTotal - hoveredExpenseTotal
+    private var selectedNetTotal: Double {
+        selectedIncomeTotal - selectedExpenseTotal
     }
 
-    private var hoveredDetails: [CategoryBreakdown] {
-        guard let hoveredBucket else { return [] }
-        let bucketTxs = filteredTransactions.filter { $0.date.start(of: granularity) == hoveredBucket }
+    private var selectedDetails: [CategoryBreakdown] {
+        guard let selectedBucket else { return [] }
+        let bucketTxs = filteredTransactions.filter { $0.date.start(of: granularity) == selectedBucket }
         let grouped = Dictionary(grouping: bucketTxs) { $0.category?.name ?? "Uncategorized" }
 
         return grouped.compactMap { name, txs -> CategoryBreakdown? in
@@ -409,6 +402,11 @@ struct AnalyticsView: View {
                 summaryHeader
                 InsightsSection(insights: insightCards)
                 chart
+
+                if let bucket = selectedBucket, !selectedDetails.isEmpty {
+                    bucketDetailCard(for: bucket)
+                }
+
                 switch activeTab {
                 case .transactions:
                     transactionsBreakdownSection
@@ -493,27 +491,89 @@ struct AnalyticsView: View {
                     rangeText
                 }
                 HStack {
-                    tabPicker
+                    compactTabMenu
                     Spacer()
-                    granularityPicker
+                    compactGranularityMenu
                 }
             }
         #endif
+    }
+
+    private var compactTabMenu: some View {
+        Menu {
+            Picker("Analytics view", selection: $activeTab) {
+                ForEach(AnalyticsTab.allCases) { tab in
+                    Label(tab.label, systemImage: tab.icon).tag(tab)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: activeTab.icon)
+                Text(activeTab.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .fixedSize(horizontal: true, vertical: false)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.quaternary.opacity(0.4), in: Capsule())
+            .foregroundStyle(.primary)
+        }
+        .accessibilityLabel("Analytics view")
+        .accessibilityHint(activeTab.label)
+    }
+
+    private var compactGranularityMenu: some View {
+        Menu {
+            Picker("Group by", selection: granularityBinding) {
+                ForEach(Granularity.allCases) { option in
+                    Text(option.label).tag(option)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            HStack(spacing: 4) {
+                Text(granularity.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .fixedSize(horizontal: true, vertical: false)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.quaternary.opacity(0.4), in: Capsule())
+            .foregroundStyle(.primary)
+        }
+        .accessibilityLabel("Group by")
     }
 
     private var filtersButton: some View {
         Button {
             showFilters = true
         } label: {
-            Label("Filters", systemImage: "line.3.horizontal.decrease")
-                .foregroundStyle(hasActiveFilters ? Color.accentColor : .primary)
+            Image(systemName: "line.3.horizontal.decrease.circle\(hasActiveFilters ? ".fill" : "")")
+                .font(.title2)
+                .contentTransition(.symbolEffect(.replace))
+                .animation(.snappy(duration: 0.2), value: hasActiveFilters)
+                .frame(width: 44, height: 44)
+                .background(.regularMaterial, in: Circle())
+                .foregroundStyle(hasActiveFilters ? Color.accentColor : Color.secondary)
         }
+        .buttonStyle(.plain)
         #if os(macOS)
-        .popover(isPresented: $showFilters, arrowEdge: .bottom) {
-            filtersContent
-        }
+            .popover(isPresented: $showFilters, arrowEdge: .bottom) {
+                filtersContent
+            }
         #else
-        .sheet(isPresented: $showFilters) {
+            .sheet(isPresented: $showFilters) {
                     NavigationStack {
                         ScrollView {
                             filtersContent
@@ -549,7 +609,7 @@ struct AnalyticsView: View {
         }
         .pickerStyle(.menu)
         #if os(macOS)
-            .frame(width: 220)
+            .fixedSize()
         #endif
             .accessibilityLabel("Analytics view")
     }
@@ -562,7 +622,7 @@ struct AnalyticsView: View {
         }
         .pickerStyle(.menu)
         #if os(macOS)
-            .frame(width: 140)
+            .fixedSize()
         #endif
             .accessibilityLabel("Group by")
     }
@@ -623,16 +683,40 @@ struct AnalyticsView: View {
     }
 
     private var amountRangeRow: some View {
-        HStack(spacing: 6) {
-            Text("Min")
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Amount Range")
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            TextField("None", text: $minAmountText)
-                .frame(width: 70)
-            Text("Max")
+
+            AmountRangeSlider(
+                bounds: ClosedRange.amountBounds(for: boundsTransactions.map(\.amount)),
+                lowText: $minAmountText,
+                highText: $maxAmountText
+            )
+
+            Text(amountRangeCaption)
+                .font(.caption2)
                 .foregroundStyle(.secondary)
-            TextField("None", text: $maxAmountText)
-                .frame(width: 70)
         }
+    }
+
+    private var amountRangeCaption: String {
+        let bounds = ClosedRange.amountBounds(for: boundsTransactions.map(\.amount))
+        let suffix = " (\(Int(bounds.lowerBound))–\(Int(bounds.upperBound)))"
+        switch (minAmountText.isEmpty, maxAmountText.isEmpty) {
+        case (true, true):
+            return "Showing all amounts" + suffix
+        case (false, true):
+            return "From \(minAmountText) and up"
+        case (true, false):
+            return "Up to \(maxAmountText)"
+        default:
+            return "\(minAmountText) – \(maxAmountText)"
+        }
+    }
+
+    private var boundsTransactions: [Transaction] {
+        allTransactions.filter { $0.date >= rangeStart && $0.date <= rangeEnd }
     }
 
     @ViewBuilder
@@ -644,12 +728,6 @@ struct AnalyticsView: View {
                 Text("\(filteredTransactions.count) transactions")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
-                if let rate = savingsRate {
-                    Text("Savings rate: \(String(format: "%.0f", max(rate, 0)))%")
-                        .font(.caption)
-                        .foregroundStyle(rate >= 0 ? .green : .red)
-                }
             }
 
             Spacer()
@@ -866,50 +944,49 @@ struct AnalyticsView: View {
                     .contentShape(Rectangle())
                     .onAppear { chartSize = geometry.size }
                     .onChange(of: geometry.size) { chartSize = $1 }
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case let .active(location):
-                            guard let plotRect = proxy.plotFrame else {
-                                hoveredBucket = nil
-                                hoveredLocation = nil
-                                return
-                            }
-                            let plotFrame = geometry[plotRect]
-                            let x = location.x - plotFrame.origin.x
-                            let y = location.y - plotFrame.origin.y
-                            if x >= 0, x <= plotFrame.width, y >= 0, y <= plotFrame.height {
-                                hoveredBucket = proxy.value(atX: x)
-                                hoveredLocation = location
-                            } else {
-                                hoveredBucket = nil
-                                hoveredLocation = nil
-                            }
-                        case .ended:
-                            hoveredBucket = nil
-                            hoveredLocation = nil
+                    .onTapGesture(coordinateSpace: .local) { location in
+                        guard let plotRect = proxy.plotFrame else { return }
+                        let plotFrame = geometry[plotRect]
+                        let point = CGPoint(
+                            x: location.x - plotFrame.origin.x,
+                            y: location.y - plotFrame.origin.y
+                        )
+                        guard point.x >= 0, point.x <= plotFrame.width, point.y >= 0, point.y <= plotFrame.height else {
+                            selectedBucket = nil
+                            return
+                        }
+                        if let bucket: Date = proxy.value(atX: point.x) {
+                            selectedBucket = selectedBucket == bucket ? nil : bucket
+                        } else {
+                            selectedBucket = nil
                         }
                     }
             }
         }
         .frame(height: 320)
-        .overlay(alignment: .topLeading) {
-            if let location = hoveredLocation, !hoveredDetails.isEmpty, let bucket = hoveredBucket {
-                tooltip(for: bucket)
-                    .offset(
-                        x: tooltipOffset(location, tooltipSize: tooltipSize).x,
-                        y: tooltipOffset(location, tooltipSize: tooltipSize).y
-                    )
-            }
-        }
-        .onPreferenceChange(SizePreferenceKey.self) { tooltipSize = $0 }
+        .animation(.snappy(duration: 0.25), value: selectedBucket)
     }
 
-    private func tooltip(for bucket: Date) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(bucket.periodLabel(for: granularity))
-                .font(.caption.weight(.semibold))
+    private func bucketDetailCard(for bucket: Date) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(bucket.periodLabel(for: granularity))
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Button {
+                    selectedBucket = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                        .frame(minWidth: 20, minHeight: 20)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close detailed view")
+            }
 
-            ForEach(hoveredDetails, id: \.categoryName) { detail in
+            ForEach(selectedDetails, id: \.categoryName) { detail in
                 HStack(spacing: 6) {
                     Circle()
                         .fill(Color(hex: detail.colorHex))
@@ -925,36 +1002,31 @@ struct AnalyticsView: View {
 
             Divider()
 
-            HStack {
-                Text("Total income")
-                    .foregroundStyle(.green)
-                Spacer()
-                Text(hoveredIncomeTotal.formattedCurrency)
-                    .foregroundStyle(.green)
+            if selectedIncomeTotal > 0 {
+                HStack {
+                    Text("Income").font(.caption).foregroundStyle(.green)
+                    Spacer()
+                    Text(selectedIncomeTotal.formattedCurrency)
+                        .font(.caption).foregroundStyle(.green)
+                }
+            }
+            if selectedExpenseTotal > 0 {
+                HStack {
+                    Text("Expenses").font(.caption).foregroundStyle(.red)
+                    Spacer()
+                    Text(selectedExpenseTotal.formattedCurrency)
+                        .font(.caption).foregroundStyle(.red)
+                }
             }
             HStack {
-                Text("Total expenses")
-                    .foregroundStyle(.red)
+                Text("Net").font(.caption.weight(.bold))
                 Spacer()
-                Text(hoveredExpenseTotal.formattedCurrency)
-                    .foregroundStyle(.red)
+                Text(selectedNetTotal.formattedCurrency)
+                    .font(.caption.weight(.bold))
             }
-            HStack {
-                Text("Net")
-                    .fontWeight(.bold)
-                Spacer()
-                Text(hoveredNetTotal.formattedCurrency)
-                    .fontWeight(.bold)
-            }
-            .font(.caption)
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .fixedSize()
-        .background(GeometryReader { geo in
-            Color.clear.preference(key: SizePreferenceKey.self, value: geo.size)
-        })
+        .padding(10)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var transactionsBreakdownSection: some View {
@@ -1202,18 +1274,6 @@ struct AnalyticsView: View {
         minAmountText = ""
         maxAmountText = ""
         selectedCategoryIDs = []
-    }
-
-    private func tooltipOffset(_ location: CGPoint, tooltipSize: CGSize) -> CGPoint {
-        let gap: CGFloat = 12
-
-        let fitsRight = location.x + gap + tooltipSize.width <= chartSize.width
-        let offsetX = fitsRight ? location.x + gap : max(gap, location.x - tooltipSize.width - gap)
-
-        let fitsAbove = location.y - gap >= tooltipSize.height
-        let offsetY = fitsAbove ? location.y - gap - tooltipSize.height : min(chartSize.height - tooltipSize.height - gap, location.y + gap)
-
-        return CGPoint(x: offsetX, y: max(gap, offsetY))
     }
 }
 

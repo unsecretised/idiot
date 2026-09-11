@@ -4,7 +4,21 @@ import SwiftUI
 struct CategoryEditView: View {
     private let category: Category?
     private let colorOptions = ["#4F8EF7", "#34C759", "#FF9500", "#FF3B30", "#AF52DE", "#FFCC00", "#FF2D55", "#5AC8FA"]
-    private let iconOptions = ["tag.fill", "briefcase.fill", "bolt.fill", "fork.knife", "basket.fill", "car.fill", "desktopcomputer", "person.fill", "dollarsign.circle.fill", "bag.fill", "house.fill", "heart.fill"]
+
+    private let iconOptions: [(symbol: String, label: String)] = [
+        ("tag.fill", "Tag / General"),
+        ("briefcase.fill", "Business"),
+        ("bolt.fill", "Utilities"),
+        ("fork.knife", "Food & Dining"),
+        ("basket.fill", "Groceries"),
+        ("car.fill", "Transport"),
+        ("desktopcomputer", "Technology"),
+        ("person.fill", "Personal"),
+        ("dollarsign.circle.fill", "Salary"),
+        ("bag.fill", "Shopping"),
+        ("house.fill", "Home"),
+        ("heart.fill", "Health"),
+    ]
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -14,6 +28,7 @@ struct CategoryEditView: View {
     @State private var type: CategoryType
     @State private var limit: String
     @State private var colorHex: String
+    @State private var customColor: Color
     @State private var iconName: String
     @State private var showValidation = false
 
@@ -23,6 +38,7 @@ struct CategoryEditView: View {
         _type = State(initialValue: category?.type ?? .expense)
         _limit = State(initialValue: category?.limit.map { String(format: "%.2f", $0) } ?? "")
         _colorHex = State(initialValue: category?.colorHex ?? "#4F8EF7")
+        _customColor = State(initialValue: Color(hex: category?.colorHex ?? "#4F8EF7"))
         _iconName = State(initialValue: category?.iconName ?? "tag.fill")
     }
 
@@ -48,6 +64,7 @@ struct CategoryEditView: View {
                         ForEach(colorOptions, id: \.self) { option in
                             Button {
                                 colorHex = option
+                                customColor = Color(hex: option)
                             } label: {
                                 Circle()
                                     .fill(Color(hex: option))
@@ -64,12 +81,26 @@ struct CategoryEditView: View {
                         }
                     }
                     .padding(.vertical, 4)
+
+                    HStack {
+                        Text("Custom")
+                        Spacer()
+                        ColorPicker("Pick a colour", selection: $customColor)
+                            .labelsHidden()
+                            .fixedSize()
+                    }
+                    .onChange(of: customColor) {
+                        colorHex = customColor.hex
+                    }
                 }
 
                 Section("Icon") {
                     Picker("Icon", selection: $iconName) {
-                        ForEach(iconOptions, id: \.self) { icon in
-                            Label(icon, systemImage: icon).tag(icon)
+                        ForEach(iconOptions, id: \.symbol) { option in
+                            Label(option.label, systemImage: option.symbol).tag(option.symbol)
+                        }
+                        if !iconOptions.contains(where: { $0.symbol == iconName }) {
+                            Label(iconName, systemImage: iconName).tag(iconName)
                         }
                     }
                 }

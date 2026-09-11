@@ -33,7 +33,8 @@ enum AnalyticsEngine {
     }
 
     static func broughtForward(allTx: [Transaction], before start: Date) -> Double {
-        allTx.filter { $0.date < start }.reduce(0) { $0 + ($1.category?.type == .income ? $1.amount : -$1.amount) }
+        let txTotal = allTx.filter { $0.date < start }.reduce(0) { $0 + ($1.category?.type == .income ? $1.amount : -$1.amount) }
+        return txTotal + OpeningBalance.amount
     }
 
     // MARK: Balance over time

@@ -17,6 +17,16 @@ struct TransactionListView: View {
     @State private var editingTransaction: Transaction?
     @State private var pendingDeleteTransaction: Transaction?
     @State private var selectedTransactionIDs: Set<Transaction.ID> = []
+    #if os(iOS)
+        @State private var editMode: EditMode = .inactive
+        private var isSelectMode: Bool {
+            editMode == .active
+        }
+
+        private var allSelected: Bool {
+            selectedTransactionIDs.count >= filteredTransactions.count && !filteredTransactions.isEmpty
+        }
+    #endif
     @State private var showBatchDeleteAlert = false
     @State private var showFilterPopover = false
 
@@ -68,29 +78,74 @@ struct TransactionListView: View {
     var body: some View {
         VStack(spacing: 0) {
             List(filteredTransactions, selection: $selectedTransactionIDs) { transaction in
-                TransactionRowView(
+                let isSelected = selectedTransactionIDs.contains(transaction.id)
+                let row = TransactionRowView(
                     transaction: transaction,
                     isOverLimit: isOverLimit(transaction),
-                    lockPastMonths: lockPastMonths
+                    lockPastMonths: lockPastMonths,
+                    isSelected: isSelected
                 )
-                .contextMenu {
-                    Button("Edit") {
-                        editingTransaction = transaction
-                    }
-                    .disabled(lockPastMonths && transaction.date.isInPastMonth)
+                row
+                    .listRowBackground(row.rowBackground(isSelected: isSelected))
+                    .contextMenu {
+                        Button("Edit") {
+                            editingTransaction = transaction
+                        }
+                        .disabled(lockPastMonths && transaction.date.isInPastMonth)
 
-                    Button("Copy") {
-                        copy(transaction)
-                    }
+                        Button("Copy") {
+                            copy(transaction)
+                        }
 
-                    Divider()
+                        Divider()
 
-                    Button("Delete", role: .destructive) {
-                        pendingDeleteTransaction = transaction
+                        Button("Delete", role: .destructive) {
+                            pendingDeleteTransaction = transaction
+                        }
+                        .disabled(lockPastMonths && transaction.date.isInPastMonth)
                     }
-                    .disabled(lockPastMonths && transaction.date.isInPastMonth)
-                }
+                #if os(iOS)
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            pendingDeleteTransaction = transaction
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .disabled(lockPastMonths && transaction.date.isInPastMonth)
+
+                        Button {
+                            editingTransaction = transaction
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .tint(.accentColor)
+                        .disabled(lockPastMonths && transaction.date.isInPastMonth)
+                    }
+                #endif
+                    .listRowSeparator(.hidden)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        #if os(iOS)
+                            if isSelectMode {
+                                return
+                            }
+                        #endif
+                        if isSelected {
+                            selectedTransactionIDs.remove(transaction.id)
+                        } else {
+                            selectedTransactionIDs.insert(transaction.id)
+                        }
+                    })
             }
+            #if os(iOS)
+            .environment(\.editMode, $editMode)
+            #endif
+            #if os(macOS)
+            .listStyle(.inset)
+            .scrollContentBackground(.hidden)
+            #else
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            #endif
             .overlay {
                 if filteredTransactions.isEmpty {
                     ContentUnavailableView("No transactions yet", systemImage: "tray", description: Text("Tap + to add one."))
@@ -125,11 +180,14 @@ struct TransactionListView: View {
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease.circle\(hasActiveFilters ? ".fill" : "")")
                         .font(.title2)
+                        .contentTransition(.symbolEffect(.replace))
+                        .animation(.snappy(duration: 0.2), value: hasActiveFilters)
                         .frame(width: 44, height: 44)
                         .background(.regularMaterial, in: Circle())
                         .foregroundStyle(hasActiveFilters ? Color.accentColor : Color.secondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Filters")
                 .popover(isPresented: $showFilterPopover, arrowEdge: .bottom) {
                     filterPopoverContent
                 }
@@ -145,11 +203,59 @@ struct TransactionListView: View {
                         .shadow(radius: 4, y: 2)
                 }
                 .buttonStyle(.plain)
-                .keyboardShortcut("n", modifiers: .command)
+                #if os(iOS)
+                    .opacity(isSelectMode ? 0 : 1)
+                    .disabled(isSelectMode)
+                    .accessibilityHidden(isSelectMode)
+                #endif
+                    .keyboardShortcut("n", modifiers: .command)
             }
             .padding()
             .animation(.default, value: selectedTransactionIDs.isEmpty)
         }
+        #if os(iOS)
+        .overlay(alignment: .bottomLeading) {
+            HStack(spacing: 8) {
+                Button {
+                    withAnimation(.snappy(duration: 0.25)) {
+                        if isSelectMode {
+                            selectedTransactionIDs = []
+                            editMode = .inactive
+                        } else {
+                            editMode = .active
+                        }
+                    }
+                } label: {
+                    Label(isSelectMode ? "Done" : "Select", systemImage: isSelectMode ? "checkmark.circle.fill" : "checkmark.circle")
+                        .labelStyle(.titleAndIcon)
+                        .font(.subheadline.weight(.semibold))
+                        .padding(10)
+                        .background(.regularMaterial, in: Capsule())
+                        .foregroundStyle(isSelectMode ? Color.accentColor : Color.primary)
+                }
+                .buttonStyle(.plain)
+                .animation(.snappy(duration: 0.2), value: isSelectMode)
+
+                if isSelectMode {
+                    Button {
+                        withAnimation(.snappy(duration: 0.25)) {
+                            selectedTransactionIDs = allSelected ? [] : Set(filteredTransactions.map(\.id))
+                        }
+                    } label: {
+                        Label(allSelected ? "Deselect All" : "Select All", systemImage: allSelected ? "circle" : "checkmark.circle")
+                            .labelStyle(.titleAndIcon)
+                            .font(.subheadline.weight(.semibold))
+                            .padding(10)
+                            .background(.regularMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+            }
+            .padding()
+            .animation(.snappy(duration: 0.25), value: isSelectMode)
+        }
+        #endif
         .alert("Delete selected transactions?", isPresented: $showBatchDeleteAlert) {
             Button("Delete", role: .destructive) {
                 deleteSelected()
@@ -185,6 +291,28 @@ struct TransactionListView: View {
         } message: {
             Text("This transaction will be removed from the current month.")
         }
+    }
+
+    private var amountRangeCaption: String {
+        let bounds = ClosedRange.amountBounds(for: transactions.map(\.amount))
+        let suffix = " (\(Int(bounds.lowerBound))–\(Int(bounds.upperBound)))"
+        switch (minAmountText.isEmpty, maxAmountText.isEmpty) {
+        case (true, true):
+            return "Showing all amounts" + suffix
+        case (false, true):
+            if let minAmountDouble {
+                return "From \(Int(minAmountDouble)) and up"
+            }
+            return "From any amount"
+        case (true, false):
+            return "Up to \(maxAmountText)"
+        default:
+            return "\(minAmountText) – \(maxAmountText)"
+        }
+    }
+
+    private var minAmountDouble: Double? {
+        Double(minAmountText)
     }
 
     private var filterPopoverContent: some View {
@@ -242,16 +370,15 @@ struct TransactionListView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
-                HStack(spacing: 8) {
-                    TextField("Min", text: $minAmountText)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
-                    Text("—")
-                        .foregroundStyle(.secondary)
-                    TextField("Max", text: $maxAmountText)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
-                }
+                AmountRangeSlider(
+                    bounds: .amountBounds(for: transactions.map(\.amount)),
+                    lowText: $minAmountText,
+                    highText: $maxAmountText
+                )
+
+                Text(amountRangeCaption)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
 
             HStack {

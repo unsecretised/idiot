@@ -6,8 +6,8 @@ struct SpendPatternsSection: View {
     let histogram: [AnalyticsEngine.HistogramBucket]
     let periodSuffix: String
 
-    @State private var hoveredWeekday: String?
-    @State private var hoveredBucket: String?
+    @State private var selectedWeekday: String?
+    @State private var selectedBucket: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -74,20 +74,20 @@ struct SpendPatternsSection: View {
                             Rectangle()
                                 .fill(.clear)
                                 .contentShape(Rectangle())
-                                .onContinuousHover { phase in
-                                    let value = hoverValue(at: phase, proxy: proxy, geometry: geometry)
-                                    hoveredWeekday = value
+                                .onTapGesture(coordinateSpace: .local) { location in
+                                    selectedWeekday = tapToggle(currentValue: selectedWeekday, at: location, in: proxy, geometry: geometry)
                                 }
                         }
                     }
                     .overlay(alignment: .topLeading) {
-                        if let label = hoveredWeekday, let item = weekdaySpend.first(where: { $0.label == label }) {
+                        if let label = selectedWeekday, let item = weekdaySpend.first(where: { $0.label == label }) {
                             Text("\(item.label) · \(item.amount.formattedCurrency)")
                                 .font(.caption.weight(.semibold))
                                 .monospacedDigit()
                                 .padding(.vertical, 3)
                                 .padding(.horizontal, 8)
-                                .background(.regularMaterial, in: Capsule())
+                                .background(.quaternary.opacity(0.5), in: Capsule())
+                                .onTapGesture { selectedWeekday = nil }
                                 .padding(4)
                         }
                     }
@@ -136,20 +136,20 @@ struct SpendPatternsSection: View {
                             Rectangle()
                                 .fill(.clear)
                                 .contentShape(Rectangle())
-                                .onContinuousHover { phase in
-                                    let value = hoverValue(at: phase, proxy: proxy, geometry: geometry)
-                                    hoveredBucket = value
+                                .onTapGesture(coordinateSpace: .local) { location in
+                                    selectedBucket = tapToggle(currentValue: selectedBucket, at: location, in: proxy, geometry: geometry)
                                 }
                         }
                     }
                     .overlay(alignment: .topLeading) {
-                        if let label = hoveredBucket, let bucket = histogram.first(where: { $0.label == label }) {
+                        if let label = selectedBucket, let bucket = histogram.first(where: { $0.label == label }) {
                             Text("\(bucket.label) · \(bucket.count) transactions")
                                 .font(.caption.weight(.semibold))
                                 .monospacedDigit()
                                 .padding(.vertical, 3)
                                 .padding(.horizontal, 8)
-                                .background(.regularMaterial, in: Capsule())
+                                .background(.quaternary.opacity(0.5), in: Capsule())
+                                .onTapGesture { selectedBucket = nil }
                                 .padding(4)
                         }
                     }
@@ -164,17 +164,16 @@ struct SpendPatternsSection: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func hoverValue(at phase: HoverPhase, proxy: ChartProxy, geometry: GeometryProxy) -> String? {
-        switch phase {
-        case let .active(location):
-            guard let plotRect = proxy.plotFrame else { return nil }
-            let plotFrame = geometry[plotRect]
-            let x = location.x - plotFrame.origin.x
-            let y = location.y - plotFrame.origin.y
-            guard x >= 0, x <= plotFrame.width, y >= 0, y <= plotFrame.height else { return nil }
-            return proxy.value(atX: x)
-        case .ended:
-            return nil
-        }
+    private func tapToggle(currentValue: String?, at location: CGPoint, in proxy: ChartProxy, geometry: GeometryProxy) -> String? {
+        let next = tapValue(at: location, in: proxy, geometry: geometry)
+        return next == currentValue ? nil : next
+    }
+
+    private func tapValue(at location: CGPoint, in proxy: ChartProxy, geometry: GeometryProxy) -> String? {
+        guard let plotRect = proxy.plotFrame else { return nil }
+        let plotFrame = geometry[plotRect]
+        let x = location.x - plotFrame.origin.x
+        guard x >= 0, x <= plotFrame.width else { return nil }
+        return proxy.value(atX: x)
     }
 }

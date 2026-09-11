@@ -5,7 +5,7 @@ struct BalanceChartSection: View {
     let points: [AnalyticsEngine.BalancePoint]
     let openingBalance: Double
 
-    @State private var hoveredDate: Date?
+    @State private var selectedDate: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -64,8 +64,8 @@ struct BalanceChartSection: View {
                 .accessibilityValue(point.balance.formattedCurrency)
             }
 
-            if let hoveredDate {
-                RuleMark(x: .value("Hovered", hoveredDate))
+            if let selectedDate {
+                RuleMark(x: .value("Selected", selectedDate))
                     .foregroundStyle(.secondary.opacity(0.5))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
             }
@@ -90,38 +90,34 @@ struct BalanceChartSection: View {
                 Rectangle()
                     .fill(.clear)
                     .contentShape(Rectangle())
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case let .active(location):
-                            guard let plotRect = proxy.plotFrame else {
-                                hoveredDate = nil
-                                return
-                            }
-                            let plotFrame = geometry[plotRect]
-                            let x = location.x - plotFrame.origin.x
-                            let y = location.y - plotFrame.origin.y
-                            if x >= 0, x <= plotFrame.width, y >= 0, y <= plotFrame.height {
-                                hoveredDate = proxy.value(atX: x)
-                            } else {
-                                hoveredDate = nil
-                            }
-                        case .ended:
-                            hoveredDate = nil
+                    .onTapGesture(coordinateSpace: .local) { location in
+                        guard let plotRect = proxy.plotFrame else { return }
+                        let plotFrame = geometry[plotRect]
+                        let x = location.x - plotFrame.origin.x
+                        guard x >= 0, x <= plotFrame.width else {
+                            selectedDate = nil
+                            return
+                        }
+                        if let picked: Date = proxy.value(atX: x) {
+                            selectedDate = selectedDate == picked ? nil : picked
+                        } else {
+                            selectedDate = nil
                         }
                     }
             }
         }
         .frame(height: 220)
         .overlay(alignment: .top) {
-            if let date = hoveredDate, let point = nearestPoint(to: date) {
-                Text("\(date.formatted(style: .medium)) · \(point.balance.formattedCurrency)")
+            if let date = selectedDate, let point = nearestPoint(to: date) {
+                Text("\(point.date.formatted(style: .medium)) · \(point.balance.formattedCurrency)")
                     .font(.caption.weight(.semibold))
                     .monospacedDigit()
                     .padding(.vertical, 4)
                     .padding(.horizontal, 10)
-                    .background(.regularMaterial, in: Capsule())
-                    .help("\(date.formatted(style: .medium)) · \(point.balance.formattedCurrency)")
-                    .offset(y: 30)
+                    .background(.quaternary.opacity(0.5), in: Capsule())
+                    .onTapGesture {
+                        selectedDate = nil
+                    }
             } else {
                 Text("Closing \(closing.formattedCurrency) · \(up ? "+" : "−")\(abs(closing - openingBalance).formattedCurrency)")
                     .font(.caption)
@@ -131,6 +127,7 @@ struct BalanceChartSection: View {
                     .background(.quaternary.opacity(0.4), in: Capsule())
             }
         }
+        .animation(.snappy(duration: 0.2), value: selectedDate)
     }
 
     private func nearestPoint(to date: Date) -> AnalyticsEngine.BalancePoint? {

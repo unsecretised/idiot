@@ -9,9 +9,9 @@ struct SettingsView: View {
 
     @AppStorage("lockPastMonths") private var lockPastMonths = true
     @State private var showAddCategory = false
+    @State private var startingAmountText: String = ""
     @State private var editingCategory: Category?
     @State private var pendingDeleteCategory: Category?
-    @State private var showSystemCategoryAlert = false
     @State private var isPushing = false
     @State private var pushError: String?
     @State private var showEraseConfirmation = false
@@ -28,100 +28,32 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    NavigationLink {
-                        TrendChartView()
-                    } label: {
-                        Label("View Spending Trends", systemImage: "chart.line.uptrend.xyaxis")
-                    }
-
-                    NavigationLink {
-                        HelpView()
-                    } label: {
-                        Label("Help & Savings Guide", systemImage: "questionmark.circle")
-                    }
-                }
-
-                Section {
-                    NavigationLink {
-                        RecurringListView(type: .expense)
-                    } label: {
-                        Label("Subscriptions", systemImage: "repeat")
-                    }
-                    .accessibilityLabel("Manage Subscriptions")
-
-                    NavigationLink {
-                        RecurringListView(type: .income)
-                    } label: {
-                        Label("Auto Salary", systemImage: "dollarsign.circle")
-                    }
-                    .accessibilityLabel("Manage Auto Salary")
-                }
-
-                Section {
-                    Toggle("Lock past months from editing", isOn: $lockPastMonths)
-                } footer: {
-                    Text("When enabled, transactions in previous months cannot be edited, copied, or deleted.")
-                }
-
-                Section {
-                    LabeledContent("Status") {
-                        Text(syncMonitor.statusText)
-                            .foregroundStyle(syncMonitor.showsError ? .red : .secondary)
-                            .monospacedDigit()
-                    }
-
-                    Button {
-                        forcePush()
-                    } label: {
-                        HStack {
-                            Label("Force Push to iCloud", systemImage: "icloud.and.arrow.up")
-                            if isPushing {
-                                Spacer()
-                                ProgressView()
-                            }
-                        }
-                    }
-                    .disabled(isPushing)
-                } header: {
-                    Text("iCloud Sync")
-                } footer: {
-                    Text("Changes sync automatically. Use Force Push if a device seems out of date — it re-uploads all local data to your private iCloud database.")
-                }
-
-                Section {
-                    Button(role: .destructive) {
-                        showEraseConfirmation = true
-                    } label: {
-                        Label("Erase All Data", systemImage: "trash")
-                    }
-                } header: {
-                    Text("Danger Zone")
-                } footer: {
-                    Text("Deletes every transaction, category, and recurring rule — locally and from iCloud. This cannot be undone.")
-                }
-
-                categorySection("Expense", categories: expenseCategories)
-                categorySection("Income", categories: incomeCategories)
+                categoriesSection
+                recurringSection
+                helpSection
+                lockSection
+                startingAmountSection
+                advancedSection
+                dangerSection
             }
             .navigationTitle("Settings")
             .task {
                 await syncMonitor.refreshAccountStatus()
+            }
+            .onAppear {
+                if startingAmountText.isEmpty {
+                    let amount = OpeningBalance.amount
+                    startingAmountText = amount == 0 ? "" : String(format: "%.2f", amount)
+                }
+            }
+            .onChange(of: startingAmountText) {
+                OpeningBalance.set(Double(startingAmountText.trimmingCharacters(in: .whitespaces)) ?? 0)
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
                         dismiss()
                     }
-                }
-
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showAddCategory = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Add Category")
                 }
             }
             .sheet(isPresented: $showAddCategory) {
@@ -130,15 +62,10 @@ struct SettingsView: View {
             .sheet(item: $editingCategory) { category in
                 CategoryEditView(category: category)
             }
-            .alert("System Category", isPresented: $showSystemCategoryAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("This is a system category and cannot be deleted. You can rename it instead.")
-            }
             .alert("Delete Category?", isPresented: deleteConfirmationBinding) {
                 Button("Delete", role: .destructive) {
                     if let pendingDeleteCategory {
-                        modelContext.delete(pendingDeleteCategory)
+                        deleteCategory(pendingDeleteCategory)
                     }
                     pendingDeleteCategory = nil
                 }
@@ -146,7 +73,7 @@ struct SettingsView: View {
                     pendingDeleteCategory = nil
                 }
             } message: {
-                Text("This will remove the category from your tracker.")
+                Text(deleteMessage)
             }
             .alert("Erase All Data?", isPresented: $showEraseConfirmation) {
                 Button("Erase Everything", role: .destructive) {
@@ -228,77 +155,130 @@ struct SettingsView: View {
         }
     }
 
-    private func categorySection(_ title: String, categories: [Category]) -> some View {
-        Section(title) {
-            if categories.isEmpty {
-                Text("No \(title.lowercased()) categories yet.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(categories) { category in
-                    categoryRow(category)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            editingCategory = category
-                        }
-                        .contextMenu {
-                            Button("Edit") {
-                                editingCategory = category
-                            }
-                            Divider()
-                            Button("Delete", role: .destructive) {
-                                requestDelete(category)
-                            }
-                        }
-                        .swipeActions {
-                            Button(role: .destructive) {
-                                requestDelete(category)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                }
+    @ViewBuilder
+    private var categoryListRows: some View {
+        if categories.isEmpty {
+            Text("No categories yet.")
+                .foregroundStyle(.secondary)
+        } else {
+            ForEach(expenseCategories, content: categoryListRow)
+                .accessibilityElement(children: .contain)
+            ForEach(incomeCategories, content: categoryListRow)
+        }
+    }
+
+    private var categoriesSection: some View {
+        Section("Categories") {
+            categoryListRows
+
+            Button {
+                showAddCategory = true
+            } label: {
+                Label("Add Category", systemImage: "plus")
             }
         }
     }
 
-    private func categoryRow(_ category: Category) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(Color(hex: category.colorHex))
-                    .frame(width: 10, height: 10)
-
-                Image(systemName: category.iconName)
-                    .frame(width: 22)
-                    .foregroundStyle(Color(hex: category.colorHex))
-
-                Text(category.name)
-
-                Spacer()
-
-                if category.type == .expense, let limit = category.limit {
-                    Text(limit.formattedCurrency)
-                        .foregroundStyle(.secondary)
-                }
+    private var recurringSection: some View {
+        Section {
+            NavigationLink(destination: RecurringListView()) {
+                Label("Subscriptions & Auto Salary", systemImage: "repeat")
             }
+            .accessibilityLabel("Manage Recurring Rules")
+        }
+    }
 
-            if category.type == .expense, let limit = category.limit {
-                let spent = currentMonthSpent(for: category)
-                let progress = limit > 0 ? min(spent / limit, 1) : 0
-
-                VStack(alignment: .leading, spacing: 4) {
-                    ProgressView(value: progress)
-                        .tint(spent >= limit ? .red : Color(hex: category.colorHex))
-                        .accessibilityLabel("\(category.name) budget")
-                        .accessibilityValue("\(spent.formattedCurrency) of \(limit.formattedCurrency)")
-
-                    Text("\(spent.formattedCurrency) / \(limit.formattedCurrency) (\(Int((limit > 0 ? spent / limit : 0) * 100))%)")
-                        .font(.caption)
-                        .foregroundStyle(spent >= limit ? .red : .secondary)
-                }
+    private var helpSection: some View {
+        Section {
+            NavigationLink(destination: helpDestination) {
+                Label("Help & Savings Guide", systemImage: "questionmark.circle")
             }
         }
-        .padding(.vertical, 4)
+    }
+
+    private var lockSection: some View {
+        Section {
+            Toggle("Lock past months from editing", isOn: $lockPastMonths)
+        } footer: {
+            Text("When enabled, transactions in previous months cannot be edited, copied, or deleted.")
+        }
+    }
+
+    private var startingAmountSection: some View {
+        Section {
+            TextField("Starting amount", text: $startingAmountText)
+            #if os(iOS)
+                .keyboardType(.decimalPad)
+            #endif
+        } header: {
+            Text("Starting Amount")
+        } footer: {
+            Text("Added to your balance everywhere in the app without creating a transaction or counting as income.")
+        }
+    }
+
+    private var advancedSection: some View {
+        Section {
+            let statusColor: Color = syncMonitor.showsError ? Color.red : Color.secondary
+            LabeledContent("iCloud Status") {
+                Text(syncMonitor.statusText)
+                    .foregroundStyle(statusColor)
+                    .monospacedDigit()
+            }
+
+            Button {
+                forcePush()
+            } label: {
+                HStack {
+                    Label("Force Push to iCloud", systemImage: "icloud.and.arrow.up")
+                    if isPushing {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled(isPushing)
+        } header: {
+            Text("Advanced")
+        } footer: {
+            Text("Changes sync automatically. Use Force Push if a device seems out of date — it re-uploads all local data to your private iCloud database.")
+        }
+    }
+
+    private var dangerSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showEraseConfirmation = true
+            } label: {
+                Label("Erase All Data", systemImage: "trash")
+                    .foregroundStyle(.red)
+            }
+        } header: {
+            Text("Danger Zone")
+        } footer: {
+            Text("Deletes every transaction, category, and recurring rule — locally and from iCloud. This cannot be undone.")
+        }
+    }
+
+    private var helpDestination: some View {
+        HelpView()
+    }
+
+    private func categoryListRow(_ category: Category) -> some View {
+        #if os(iOS)
+            return SettingsCategoryRow(category: category, spent: currentMonthSpent(for: category), onEdit: onEditCategory, onDelete: requestDelete)
+                .swipeActions {
+                    Button(role: .destructive) { requestDelete(category) } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+        #else
+            return SettingsCategoryRow(category: category, spent: currentMonthSpent(for: category), onEdit: onEditCategory, onDelete: requestDelete)
+        #endif
+    }
+
+    private func onEditCategory(_ category: Category) {
+        editingCategory = category
     }
 
     private func currentMonthSpent(for category: Category) -> Double {
@@ -314,11 +294,84 @@ struct SettingsView: View {
             .reduce(0) { $0 + $1.amount }
     }
 
-    private func requestDelete(_ category: Category) {
-        if category.isSystem {
-            showSystemCategoryAlert = true
-        } else {
-            pendingDeleteCategory = category
+    private var deleteMessage: String {
+        guard let category = pendingDeleteCategory else {
+            return "This will remove the category from your tracker."
         }
+
+        let count = category.transactions?.count ?? 0
+        guard count > 0 else {
+            return "This will remove the category from your tracker."
+        }
+
+        return "This will remove the category and its \(count) transaction\(count == 1 ? "" : "s") from your tracker."
+    }
+
+    private func deleteCategory(_ category: Category) {
+        for transaction in category.transactions ?? [] {
+            modelContext.delete(transaction)
+        }
+        modelContext.delete(category)
+
+        try? modelContext.save()
+        WidgetSnapshotWriter.write(context: modelContext)
+    }
+
+    private func requestDelete(_ category: Category) {
+        pendingDeleteCategory = category
+    }
+}
+
+struct SettingsCategoryRow: View {
+    let category: Category
+    let spent: Double
+    let onEdit: (Category) -> Void
+    let onDelete: (Category) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Image(systemName: category.iconName)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color(hex: category.colorHex))
+                    .frame(width: 28, height: 28)
+                    .background(Color(hex: category.colorHex).opacity(0.15), in: RoundedRectangle(cornerRadius: 7))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(category.name)
+                        .fontWeight(.medium)
+                    Text(category.type.displayName)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if category.type == .expense, let limit = category.limit {
+                    Text(limit.formattedCurrency)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+
+            if category.type == .expense, let limit = category.limit {
+                let progress = limit > 0 ? min(spent / limit, 1) : 0
+
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: progress)
+                        .tint(spent >= limit ? Color.red : Color(hex: category.colorHex))
+                        .accessibilityLabel("\(category.name) budget")
+                        .accessibilityValue("\(spent.formattedCurrency) of \(limit.formattedCurrency)")
+
+                    Text("\(spent.formattedCurrency) / \(limit.formattedCurrency) (\(Int((limit > 0 ? spent / limit : 0) * 100))%)")
+                        .font(.caption)
+                        .foregroundStyle(spent >= limit ? Color.red : Color.secondary)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens category editor")
+        .accessibilityAddTraits(.isButton)
     }
 }

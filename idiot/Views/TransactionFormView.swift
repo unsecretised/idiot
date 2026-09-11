@@ -15,6 +15,7 @@ struct TransactionFormView: View {
     @State private var selectedCategory: Category?
     @State private var showValidation = false
     @State private var showDatePicker = false
+    @FocusState private var titleFocused: Bool
 
     init(transaction: Transaction? = nil, defaultDate: Date = .now) {
         self.transaction = transaction
@@ -61,6 +62,8 @@ struct TransactionFormView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         TextField("Title", text: $title)
                             .textFieldStyle(.roundedBorder)
+                            .focused($titleFocused)
+                            .submitLabel(.next)
                             .overlay {
                                 if showValidation, title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                     RoundedRectangle(cornerRadius: 6)
@@ -80,6 +83,10 @@ struct TransactionFormView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         TextField("Amount", text: $amount)
                             .textFieldStyle(.roundedBorder)
+                        #if os(iOS)
+                            .keyboardType(.decimalPad)
+                        #endif
+                            .submitLabel(.done)
 
                         if showValidation, (Double(amount) ?? 0) <= 0 {
                             Text("Amount must be greater than 0.")
@@ -96,9 +103,16 @@ struct TransactionFormView: View {
                         Picker("Category", selection: $selectedCategory) {
                             Text("Select a category").tag(Category?.none)
                             ForEach(categories) { category in
-                                Text("\(category.type.displayName): \(category.name)").tag(Category?.some(category))
+                                Label {
+                                    Text("\(category.type.displayName): \(category.name)")
+                                } icon: {
+                                    Image(systemName: category.iconName)
+                                        .foregroundStyle(Color(hex: category.colorHex))
+                                }
+                                .tag(Category?.some(category))
                             }
                         }
+                        .foregroundStyle(.primary)
                     }
 
                     if showValidation, selectedCategory == nil {
@@ -128,6 +142,9 @@ struct TransactionFormView: View {
             #endif
             .onAppear {
                 selectedCategory = selectedCategory ?? categories.first
+                if transaction == nil {
+                    titleFocused = true
+                }
             }
         }
     }

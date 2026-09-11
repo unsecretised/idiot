@@ -13,8 +13,16 @@ Build the Settings view — a modal sheet with a list of categories grouped by t
 - A "＋" button in the toolbar to add a new category.
 - Swipe-to-delete behavior:
   - If `isSystem` is `true`, show an alert: "This is a system category and cannot be deleted. You can rename it instead."
+
   - If `isSystem` is `false`, show a confirmation alert before deleting.
 
+  - Later changed: `isSystem` categories can now be deleted too. All deletions go through a single
+    confirmation alert whose message warns when transactions will be removed along with the category
+    ("This will remove the category and its N transaction(s)…"). Deleting a category also deletes its
+    transactions and refreshes the widget snapshot via `WidgetSnapshotWriter.write(context:)`. Deleted
+    system categories are NOT re-seeded on relaunch (`DefaultCategories.seedIfNeeded` is gated by a
+    UserDefaults flag). The Category color section also includes a `ColorPicker` ("Custom") that
+    round-trips through `Color.hex` into `category.colorHex`.
 ### 2. Create `Views/CategoryEditView.swift`
 - A sheet/pushed view for editing a single category (or creating a new one).
 - Fields:
