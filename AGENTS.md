@@ -23,7 +23,6 @@ idiot/
 ├── ViewModels/
 │   └── CloudSyncMonitor.swift
 ├── Views/
-│   ├── ContentView.swift
 │   ├── TransactionListView.swift
 │   ├── TransactionRowView.swift
 │   ├── TransactionFormView.swift

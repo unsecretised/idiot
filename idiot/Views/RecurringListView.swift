@@ -26,8 +26,7 @@ struct RecurringListView: View {
         List {
             Section {
                 if displayRules.isEmpty {
-                    Text(type == .income ? "No income rules yet." : "No subscriptions yet.")
-                        .foregroundStyle(.secondary)
+                    emptyState
                 } else {
                     ForEach(displayRules) { rule in
                         ruleRow(rule)
@@ -58,7 +57,17 @@ struct RecurringListView: View {
                     }
                 }
             } header: {
-                Text(type == .income ? "Auto Salary" : "Subscriptions")
+                HStack {
+                    Text(type == .income ? "Auto Salary" : "Subscriptions")
+                    Spacer()
+                    Button {
+                        showAdd = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(type == .income ? "Add Salary Rule" : "Add Subscription")
+                }
             } footer: {
                 Text(
                     "\(monthlyEstimate.formattedCurrency) per month estimated · \(displayRules.filter(\.isActive).count) active"
@@ -66,35 +75,40 @@ struct RecurringListView: View {
             }
         }
         .navigationTitle(type == .income ? "Auto Salary" : "Subscriptions")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showAdd = true
-                } label: {
-                    Image(systemName: "plus")
+        #if os(iOS)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showAdd = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel(type == .income ? "Add Salary Rule" : "Add Subscription")
                 }
-                .accessibilityLabel(type == .income ? "Add Salary Rule" : "Add Subscription")
             }
-        }
-        .sheet(isPresented: $showAdd) {
-            RecurringFormView(mode: type == .income ? .salary : .subscription)
-        }
-        .sheet(item: $editingRule) { rule in
-            RecurringFormView(mode: rule.category?.type == .income ? .salary : .subscription, rule: rule)
-        }
-        .alert("Delete Rule?", isPresented: deleteBinding) {
-            Button("Delete Rule Only", role: .destructive) {
-                deleteRule(keepPast: true)
+        #endif
+            .sheet(isPresented: $showAdd) {
+                RecurringFormView(mode: type == .income ? .salary : .subscription)
             }
-            Button("Delete Rule + Transactions", role: .destructive) {
-                deleteRule(keepPast: false)
+            .sheet(item: $editingRule) { rule in
+                RecurringFormView(mode: rule.category?.type == .income ? .salary : .subscription, rule: rule)
             }
-            Button("Cancel", role: .cancel) {
-                deletingRule = nil
+            .alert("Delete Rule?", isPresented: deleteBinding) {
+                Button("Delete Rule Only", role: .destructive) {
+                    deleteRule(keepPast: true)
+                }
+                Button("Delete Rule + Transactions", role: .destructive) {
+                    deleteRule(keepPast: false)
+                }
+                Button("Cancel", role: .cancel) {
+                    deletingRule = nil
+                }
+            } message: {
+                Text("Past transactions already generated stay in your history unless you remove them.")
             }
-        } message: {
-            Text("Past transactions already generated stay in your history unless you remove them.")
-        }
+        #if os(macOS)
+            .frame(minWidth: 520, minHeight: 520)
+        #endif
     }
 
     private var deleteBinding: Binding<Bool> {
@@ -185,5 +199,27 @@ struct RecurringListView: View {
         }
         modelContext.delete(rule)
         deletingRule = nil
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            ContentUnavailableView(
+                type == .income ? "No income rules yet" : "No subscriptions yet",
+                systemImage: type == .income ? "dollarsign.circle" : "repeat",
+                description: Text(
+                    type == .income
+                        ? "Track recurring income so it's logged automatically."
+                        : "Track recurring charges so they're logged automatically."
+                )
+            )
+
+            Button(type == .income ? "Add Salary Rule" : "Add Subscription") {
+                showAdd = true
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .accessibilityElement(children: .combine)
     }
 }
