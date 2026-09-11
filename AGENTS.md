@@ -61,7 +61,7 @@ idiot/
 - `limit: Double?` (monthly spending cap for expense categories; nil = no limit)
 - `colorHex: String` (hex color for chart segments and badges)
 - `iconName: String` (SF Symbol name)
-- `isSystem: Bool` (true for default categories; prevents deletion but allows rename)
+- `isSystem: Bool` (true for default categories; system categories can be renamed, recolored via a custom ColorPicker, and deleted — they are not re-seeded after deletion)
 - `sortOrder: Int`
 
 **`Transaction`** — `@Model`
